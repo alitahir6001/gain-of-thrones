@@ -1,0 +1,41 @@
+[project]
+name = "gain-of-thrones"
+version = "0.1.0"
+description = "Remaster CD rips with your AI agent: stem-aware processing, measured renders, blind level-matched A/B."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+# 3.11 is the tested version; torch lags new Pythons.
+requires-python = ">=3.11,<3.12"
+# Exact versions that reproduced the Freaks EP regression.
+dependencies = [
+    "demucs==4.1.0",
+    "numpy==2.4.6",
+    "pedalboard==0.9.26",
+    "pyloudnorm==0.2.0",
+    "scipy==1.17.1",
+    "soundfile==0.14.0",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",  # keep < 2.9: 2.9 dropped the audio I/O older Demucs builds use
+]
+
+[project.scripts]
+got = "gain_of_thrones.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+# No Intel Macs: torch stopped shipping wheels for them after 2.2.
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux'",
+    "sys_platform == 'win32'",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
