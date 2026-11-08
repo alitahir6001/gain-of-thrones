@@ -1,0 +1,23 @@
+# Audio never goes in the repo (tests/test_no_audio.py is the backstop).
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.aac
+*.ogg
+*.opus
+*.aif*
+*.alac
+*.ape
+*.wv
+*.dsf
+
+# Work folders and the local prototype
+work/
+separated/
+prototype/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
