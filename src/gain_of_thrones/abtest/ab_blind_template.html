@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blind A/B</title>
+<style>
+:root {
+  --bg: #f3f4f6; --card: #ffffff; --line: #e2e4e9; --text: #15171a; --muted: #686c75;
+  --accent: #0b7a5c; --accent-ink: #ffffff; --accent-soft: #e1f2ec; --track: #e6e8ec;
+  --shadow: 0 1px 2px rgba(16, 18, 22, .05), 0 6px 20px rgba(16, 18, 22, .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f11; --card: #17181b; --line: #2a2c31; --text: #ebecef; --muted: #9b9ea6;
+    --accent: #3dd09c; --accent-ink: #052118; --accent-soft: #143127; --track: #2a2c31;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 780px; margin: 0 auto; padding: 32px 16px 56px; display: grid; gap: 16px; }
+header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 24px; line-height: 1.2; margin: 0; letter-spacing: -.015em; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: 14px; }
+.song { font-size: 17px; font-weight: 600; margin: 6px 0 0; }
+.pill { font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  background: var(--accent-soft); color: var(--accent); }
+.pill.err { background: #fde8e8; color: #b42318; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+h2 { font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0; }
+.note { color: var(--muted); font-size: 14px; margin: 14px 0 0; }
+button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background .12s, border-color .12s, color .12s; -webkit-tap-highlight-color: transparent; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .4; cursor: default; }
+button svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+button.on, button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.versions { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.ver { flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 16px; min-height: 82px; text-align: left; }
+.ver .name { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; }
+.ver .hint { font-size: 12px; color: var(--muted); }
+.ver.on .hint { color: inherit; opacity: .75; }
+.now { font-size: 14px; color: var(--muted); }
+.now b { color: var(--text); }
+.timeline { padding: 6px 0 2px; }
+.track { position: relative; height: 28px; cursor: pointer; touch-action: none; }
+.track .rail, .track .fill, .track .band { position: absolute; top: 11px; height: 6px; border-radius: 3px; }
+.track .rail { left: 0; right: 0; background: var(--track); }
+.track .fill { left: 0; width: 0; background: var(--accent); }
+.track .band { background: var(--accent); opacity: .28; display: none; }
+.track .knob { position: absolute; top: 5px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; left: 0;
+  background: var(--card); border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.track:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.times { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.transport { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; }
+.transport .primary { min-width: 120px; padding: 11px 22px; font-weight: 650; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.label { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 2px; }
+.small { padding: 6px 11px; font-size: 14px; }
+.loopinfo { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 96px; }
+input[type=range] { accent-color: var(--accent); width: 140px; }
+.vol { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 38px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 20px; margin: 0; }
+.keys div { display: flex; align-items: center; gap: 12px; }
+.keys dt { display: flex; gap: 4px; min-width: 64px; }
+.keys dd { margin: 0; color: var(--muted); font-size: 14px; }
+kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 5px 7px; min-width: 26px; text-align: center; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 14px; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.file { word-break: break-word; }
+@media (max-width: 560px) {
+  h1 { font-size: 21px; }
+  .card { padding: 16px; }
+  .transport { gap: 6px; }
+  .transport button { padding: 9px 12px; }
+  .transport .primary { min-width: 96px; padding: 10px 16px; }
+  .transport button:not(.primary) .txt { display: none; }
+}
+</style></head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Blind A/B listening test</h1>
+      <p class="song" id="song"></p>
+      <p class="sub" id="sub">Preparing…</p>
+    </div>
+    <span class="pill" id="pill">Loading</span>
+  </header>
+
+  <section class="card" aria-labelledby="h-versions">
+    <div class="card-head"><h2 id="h-versions">Versions</h2><span class="now" id="now"></span></div>
+    <div class="versions" id="versions"></div>
+    <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled on every page load.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-transport">
+    <div class="card-head"><h2 id="h-transport">Playback</h2></div>
+    <div class="timeline">
+      <div class="track" id="track" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+        <div class="rail"></div><div class="band" id="band"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div>
+      </div>
+      <div class="times"><span id="tcur">0:00</span><span id="tdur">0:00</span></div>
+    </div>
+    <div class="transport">
+      <button id="bStop" title="Stop and go back to the start (S)"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span class="txt">Stop</span></button>
+      <button id="bBack" title="Back 10 seconds (←)"><svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6zm.5-6 8.5 6V6z"/></svg><span class="txt">10 s</span></button>
+      <button id="bPlay" class="primary" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg><span id="playTxt">Play</span></button>
+      <button id="bFwd" title="Forward 10 seconds (→)"><span class="txt">10 s</span><svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6zm9-12v12l8.5-6z"/></svg></button>
+      <button id="bLoop" title="Loop on / off (L)"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg><span class="txt">Loop</span></button>
+    </div>
+    <div class="row">
+      <div class="group">
+        <span class="label">Loop</span>
+        <button class="small" id="bLoopA" title="Set loop start at the current position ([)">Set start</button>
+        <button class="small" id="bLoopB" title="Set loop end at the current position (])">Set end</button>
+        <button class="small" id="bLoopClear" title="Clear the loop">Clear</button>
+        <span class="loopinfo" id="loopinfo">Not set</span>
+      </div>
+      <div class="group">
+        <span class="label">Volume</span>
+        <input type="range" id="vol" min="0" max="100" value="100" aria-label="Volume (same for every version)">
+        <span class="vol" id="volTxt">100%</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-keys">
+    <div class="card-head"><h2 id="h-keys">Keyboard shortcuts</h2></div>
+    <dl class="keys">
+      <div><dt><kbd>Space</kbd></dt><dd>Play / pause</dd></div>
+      <div><dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Pick a version</dd></div>
+      <div><dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Previous / next version</dd></div>
+      <div><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Back / forward 10 s</dd></div>
+      <div><dt><kbd>S</kbd></dt><dd>Stop, back to the start</dd></div>
+      <div><dt><kbd>[</kbd><kbd>]</kbd></dt><dd>Set loop start / end</dd></div>
+      <div><dt><kbd>L</kbd></dt><dd>Loop on / off</dd></div>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="h-reveal">
+    <div class="card-head"><h2 id="h-reveal">Reveal</h2></div>
+    <p class="note" style="margin-top:0">Pick your favorite by ear first, then reveal which file is which.</p>
+    <p style="margin:12px 0 0"><button id="bReveal" disabled>Reveal the files</button></p>
+    <div id="reveal"></div>
+  </section>
+</main>
+<script>
+// Filled by got abtest: [{url, label, lufs, gain_db, ref}]; gain_db is always <= 0 (level-matched down, never up).
+// Must be served over http (fetch fails on file://). Don't name an element "status": it clashes with window.status.
+const VERSIONS = __VERSIONS__;
+const SONG = __SONG__;  // the reference's title tag, else its file name
+const $ = id => document.getElementById(id);
+$("song").textContent = SONG;
+document.title = `${SONG} · Blind A/B`;
+const ctx = new AudioContext();
+const master = ctx.createGain(); master.connect(ctx.destination);
+let bufs = [], gains = [], srcs = [], cur = 0, playing = false, started = false, t0 = 0, off = 0, dur = 0, dragging = false;
+let loopA = null, loopB = null, looping = false;
+
+// Fisher-Yates; the reference stays first and labelled, the rest are blind.
+const order = VERSIONS.map((_, i) => i);
+for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+const ref = Math.max(0, VERSIONS.findIndex(v => v.ref));
+const slots = [ref, ...order.filter(i => i !== ref)];
+const names = slots.map((_, k) => k === 0 ? "Original" : String.fromCharCode(64 + k));
+const quietest = Math.min(...VERSIONS.map(v => v.lufs));
+$("sub").textContent = `${VERSIONS.length} versions, level-matched to ${quietest.toFixed(1)} LUFS`;
+
+const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+const level = vi => Math.pow(10, VERSIONS[vi].gain_db / 20);
+function setPill(text, err) { $("pill").textContent = text; $("pill").className = "pill" + (err ? " err" : ""); }
+
+let loaded = 0;
+setPill(`Loading 0 of ${VERSIONS.length}`);
+Promise.all(VERSIONS.map(v => fetch(v.url)
+    .then(r => { if (!r.ok) throw new Error(`${r.status} for ${v.label}`); return r.arrayBuffer(); })
+    .then(b => ctx.decodeAudioData(b))
+    .then(buf => { setPill(`Loading ${++loaded} of ${VERSIONS.length}`); return buf; })))
+  .then(b => {
+    bufs = b; dur = Math.min(...b.map(x => x.duration));
+    $("tdur").textContent = fmt(dur); $("track").setAttribute("aria-valuemax", Math.floor(dur));
+    slots.forEach((vi, k) => {
+      const g = ctx.createGain(); g.gain.value = 0; g.connect(master); gains[vi] = g;
+      const el = document.createElement("button");
+      el.className = "ver"; el.id = "v" + k; el.onclick = () => pick(k);
+      el.innerHTML = `<span class="name">${names[k]}</span><span class="hint">${k === 0 ? "reference · " : ""}key ${k + 1 <= 9 ? k + 1 : "–"}</span>`;
+      $("versions").appendChild(el);
+    });
+    $("bReveal").disabled = false;
+    pick(0); setPill("Ready");
+  })
+  .catch(e => { setPill("Load failed", true); $("sub").textContent = "Could not load the audio: " + e.message; });
+
+function pick(k) {
+  if (!bufs.length || k < 0 || k >= slots.length) return;
+  cur = k;
+  slots.forEach((vi, j) => {
+    gains[vi].gain.setTargetAtTime(j === k ? level(vi) : 0, ctx.currentTime, 0.005);
+    $("v" + j).classList.toggle("on", j === k);
+  });
+  $("now").innerHTML = `Now hearing <b>${names[k]}</b>`;
+}
+
+function start(at) {
+  stop();
+  if (looping) at = (at >= loopA && at < loopB) ? at : loopA;
+  const when = ctx.currentTime + 0.05;
+  srcs = slots.map(vi => {
+    const s = ctx.createBufferSource(); s.buffer = bufs[vi];
+    if (looping) { s.loop = true; s.loopStart = loopA; s.loopEnd = loopB; }
+    s.connect(gains[vi]); s.start(when, at); return s;
+  });
+  t0 = when - at; playing = started = true;
+}
+function stop() { srcs.forEach(s => { try { s.stop(); } catch (e) {} }); srcs = []; playing = false; }
+function now() {
+  if (!playing) return off;
+  let p = Math.max(0, ctx.currentTime - t0);
+  if (looping && p >= loopB) p = loopA + (p - loopA) % (loopB - loopA);
+  return p;
+}
+function seek(p) {
+  if (!bufs.length) return;
+  p = Math.min(Math.max(0, p), Math.max(0, dur - 0.05));
+  if (looping && (p < loopA || p >= loopB)) looping = false;  // seeking out of the loop ends it
+  if (playing) start(p); else off = p;
+}
+function toggle() {
+  if (!bufs.length) return;
+  ctx.resume();
+  if (playing) { off = now(); stop(); } else start(off >= dur - 0.05 ? 0 : off);
+}
+function stopToStart() { if (!bufs.length) return; stop(); off = looping ? loopA : 0; }
+function setLoopStart() {
+  if (!bufs.length) return;
+  loopA = now();
+  if (loopB !== null && loopB - loopA < 0.5) { loopB = null; looping = false; }
+}
+function setLoopEnd() {
+  if (!bufs.length) return;
+  const p = now();
+  if (loopA === null) loopA = 0;
+  if (p - loopA < 0.5) return;
+  loopB = p; looping = true;
+  if (playing) start(loopA); else off = loopA;
+}
+function toggleLoop() {
+  if (!bufs.length) return;
+  if (loopA === null || loopB === null) {  // no loop yet: loop the next 10 s
+    loopA = now(); loopB = Math.min(dur, loopA + 10);
+    if (loopB - loopA < 0.5) { loopA = loopB = null; return; }
+    looping = false;
+  }
+  const p = now(); looping = !looping;
+  if (playing) start(p); else if (looping && (off < loopA || off >= loopB)) off = loopA;
+}
+function clearLoop() { const p = now(); loopA = loopB = null; looping = false; if (playing) start(p); }
+
+// Timeline: click or drag to seek; the playhead follows playback otherwise.
+const track = $("track");
+const frac = e => { const r = track.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+track.addEventListener("pointerdown", e => { if (!bufs.length) return; dragging = true; track.setPointerCapture(e.pointerId); paint(frac(e) * dur); });
+track.addEventListener("pointermove", e => { if (dragging) paint(frac(e) * dur); });
+track.addEventListener("pointerup", e => { if (!dragging) return; dragging = false; seek(frac(e) * dur); });
+
+$("bPlay").onclick = toggle; $("bStop").onclick = stopToStart;
+$("bBack").onclick = () => seek(now() - 10); $("bFwd").onclick = () => seek(now() + 10);
+$("bLoop").onclick = toggleLoop; $("bLoopA").onclick = setLoopStart; $("bLoopB").onclick = setLoopEnd; $("bLoopClear").onclick = clearLoop;
+$("vol").oninput = e => { const v = +e.target.value; master.gain.setTargetAtTime((v / 100) ** 2, ctx.currentTime, 0.01); $("volTxt").textContent = v + "%"; };
+$("bReveal").onclick = () => {
+  const rows = slots.map((vi, k) => `<tr><td><b>${names[k]}</b></td><td class="file"></td>` +
+    `<td class="num">${VERSIONS[vi].lufs.toFixed(2)} LUFS</td><td class="num">${VERSIONS[vi].gain_db.toFixed(2)} dB</td></tr>`).join("");
+  $("reveal").innerHTML = `<table><thead><tr><th>Slot</th><th>File</th><th class="num">As rendered</th><th class="num">Played at</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("reveal").querySelectorAll("td.file").forEach((td, k) => td.textContent = VERSIONS[slots[k]].label);
+  $("bReveal").disabled = true;
+};
+
+function paint(p) {
+  const f = dur ? p / dur : 0;
+  $("fill").style.width = $("knob").style.left = (100 * f) + "%";
+  $("tcur").textContent = fmt(p); track.setAttribute("aria-valuenow", Math.floor(p));
+}
+function frame() {
+  if (playing && !looping && now() >= dur) { stop(); off = 0; }
+  if (!dragging) paint(now());
+  const band = $("band");
+  if (loopA !== null && loopB !== null && dur) {
+    band.style.display = "block"; band.style.left = (100 * loopA / dur) + "%"; band.style.width = (100 * (loopB - loopA) / dur) + "%";
+    band.style.opacity = looping ? ".35" : ".15";
+    $("loopinfo").textContent = `${fmt(loopA)} – ${fmt(loopB)}${looping ? "" : " (off)"}`;
+  } else { band.style.display = "none"; $("loopinfo").textContent = loopA !== null ? `Start ${fmt(loopA)}` : "Not set"; }
+  $("bLoop").classList.toggle("on", looping);
+  $("playTxt").textContent = playing ? "Pause" : "Play";
+  $("playIcon").innerHTML = playing ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+  if (bufs.length) setPill(playing ? (looping ? "Looping" : "Playing") : started ? "Paused" : "Ready");
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key, n = slots.length;
+  if (e.code === "Space") toggle();
+  else if (k >= "1" && k <= "9") pick(+k - 1);
+  else if (k === "ArrowUp") pick((cur - 1 + n) % n);
+  else if (k === "ArrowDown") pick((cur + 1) % n);
+  else if (k === "ArrowLeft") seek(now() - 10);
+  else if (k === "ArrowRight") seek(now() + 10);
+  else if (k === "s" || k === "S") stopToStart();
+  else if (k === "[") setLoopStart();
+  else if (k === "]") setLoopEnd();
+  else if (k === "l" || k === "L") toggleLoop();
+  else return;
+  e.preventDefault();
+});
+// A focused button would otherwise also "click" on Space.
+document.addEventListener("keyup", e => { if (e.code === "Space") e.preventDefault(); });
+</script>
+</body></html>
