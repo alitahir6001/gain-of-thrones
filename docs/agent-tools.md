@@ -70,6 +70,8 @@ What it prints and what to check:
 
 `--preset` takes a registered name (`heavy-guitar`) or a path to a preset `.py` file. To iterate, copy the preset into the work folder, change one value, and render with `--preset work/<album>/presets/v2.py --name v2`. `--name` labels the file; it defaults to the preset name.
 
+Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz attacks (snare crack and snap) by at most 2 dB and leaves the cymbal wash alone. Add `from gain_of_thrones.dsp import crack_lift` and append `crack_lift` to the copy's `"drums"` chain. It prints how often it acted. It won one blind round, on one track, with the drum compressor already off (ADR 0016).
+
 ## got abtest
 
 `got abtest --ref ORIGINAL VERSION... [--port N] [--no-browser]`: measures each file's loudness, turns every file down to the quietest one (never up), and serves a blind A/B page on `127.0.0.1` (random free port unless `--port`). Opens the person's default browser unless `--no-browser`. It blocks until stopped, so run it in the background and stop it when the round is done.

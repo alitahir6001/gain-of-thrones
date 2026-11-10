@@ -19,3 +19,4 @@ ADRs 0001-0015 were backfilled on 2026-11-08 from the repository. Each one is da
 - [0013 - A new genre ships only with a research report and a blind A/B win - accepted - 2026-11-08](0013-new-genre-needs-research-and-blind-ab.md)
 - [0014 - Never commit audio; tests use synthetic signals - accepted - 2026-11-08](0014-no-audio-in-git.md)
 - [0015 - License the project GPL-3.0-or-later - accepted - 2026-11-08](0015-gpl-3-or-later-license.md)
+- [0016 - Offer crack_lift as a generic opt-in drum stage, not a preset default - accepted - 2026-11-09](0016-crack-lift-as-a-generic-opt-in-drum-stage.md)
