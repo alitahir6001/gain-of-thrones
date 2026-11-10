@@ -18,7 +18,8 @@ A remastering tool for a person and their agent: the person listens and decides,
 - Subprocesses get `stdin=DEVNULL` (`io.run`): ffprobe and friends otherwise swallow a caller's piped input.
 - Folder names like `Freaks [EP]` break glob; `io.audio_files` uses `pathlib` iteration.
 - MP3 gain must be measured after encoding: predicting it from the WAV peaks left MP3s at -1.7 dBTP instead of -2.
-- Demucs `--shifts` is random, so re-splitting changes stems slightly. Mastering the same stems is bit-identical.
+- Demucs `--shifts` is random, so re-splitting changes stems slightly. Mastering the same stems is bit-identical, given the same `--target` list: the dither comes from one RNG per call, so the -10 render of `--target -11 --target -10` differs by 1 LSB from a lone `--target -10`.
+- ffmpeg's Apple AAC encoder (`aac_at`) added 820 samples to a 3 s file (ffmpeg 9.0.2). Export uses the built-in `aac`, which decodes to the exact length.
 - A/B switching changes gain only; seeking to re-sync caused audible thumps.
 
 ## Maintainer regression (local only, needs the Freaks EP)
