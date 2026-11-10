@@ -88,11 +88,13 @@ def main(argv=None):
     p.add_argument("--no-browser", action="store_true", help="print the URL without opening a browser")
     p.set_defaults(func=cmd_abtest)
 
-    p = sub.add_parser("export", help="MP3 320k (album <= -2 dBTP) or 24-bit FLAC, with the source tags and cover")
+    from .export import FORMATS
+    p = sub.add_parser("export", help="MP3/AAC (one gain, <= -2 dBTP) or 24-bit FLAC/ALAC/WAV, with the source "
+                                      "tags and cover")
     p.add_argument("renders", nargs="+",
                    help="render .wav files, or folders with one render per track (e.g. <work>/renders/album)")
     p.add_argument("--source", required=True, help="folder of the original files (tags and cover come from here)")
-    p.add_argument("--format", choices=["mp3", "flac"], default="mp3")
+    p.add_argument("--format", choices=list(FORMATS), required=True, help="the person's choice; one per run")
     p.add_argument("--out", help="default: <work>/export/<format>")
     p.set_defaults(func=cmd_export)
 

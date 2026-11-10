@@ -12,12 +12,13 @@ SR = 44100
 
 
 def make_album(tmp_path):
-    """One source FLAC with tags, ReplayGain and a cover; one 24-bit render peaking at -1.3 dBTP."""
+    """One source FLAC with tags (lyrics: WAV has no slot for them), ReplayGain and a cover; one 24-bit render
+    peaking at -1.3 dBTP."""
     src, ren = tmp_path / "src", tmp_path / "renders"
     src.mkdir(), ren.mkdir()
     io.run([io.tool("ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
             "-f", "lavfi", "-i", "color=c=red:s=32x32", "-map", "0:a", "-map", "1:v", "-frames:v", "1",
-            "-c:v", "mjpeg", "-disposition:v", "attached_pic", "-metadata", "title=Tone",
+            "-c:v", "mjpeg", "-disposition:v", "attached_pic", "-metadata", "title=Tone", "-metadata", "lyrics=la",
             "-metadata", "REPLAYGAIN_TRACK_GAIN=-3.00 dB", "-metadata", "replaygain_album_peak=0.99",
             src / "01 Tone.flac"])
     rng = np.random.default_rng(0)
@@ -28,27 +29,30 @@ def make_album(tmp_path):
     return src, ren
 
 
-def test_mp3_export_is_under_ceiling_and_drops_replaygain(tmp_path):
+@pytest.mark.parametrize("fmt", ["mp3", "aac"])
+def test_lossy_export_is_under_ceiling_and_keeps_tags_and_cover(tmp_path, fmt):
     src, ren = make_album(tmp_path)
-    outs = export.run([ren], src, "mp3", tmp_path / "mp3")
-    mp3 = outs[src / "01 Tone.flac"]
-    assert true_peak(io.decode(mp3)[0]) <= export.MP3_CEILING
-    info = io.probe(mp3)
-    tags = {k.upper(): v for k, v in info["format"]["tags"].items()}
-    assert tags["TITLE"] == "Tone"
-    assert not [k for k in tags if k.startswith("REPLAYGAIN")]
-    assert any(s["codec_type"] == "video" for s in info["streams"])  # cover kept
+    out = export.run([ren], src, fmt, tmp_path / fmt)[src / "01 Tone.flac"]
+    assert io.audio_stream(out)["codec_name"] == fmt
+    assert true_peak(io.decode(out)[0]) <= export.LOSSY_CEILING
+    tags = {k.upper(): v for k, v in io.probe(out)["format"]["tags"].items()}
+    assert tags["TITLE"] == "Tone" and not [k for k in tags if k.startswith("REPLAYGAIN")]
+    assert export.carried(src / "01 Tone.flac", out, fmt)[:2] == ("kept", [])
 
 
-def test_flac_export_is_24_bit_as_rendered(tmp_path):
+@pytest.mark.parametrize("fmt", ["flac", "alac", "wav"])
+def test_lossless_export_keeps_the_rendered_samples(tmp_path, fmt):
     src, ren = make_album(tmp_path)
-    flac = export.run([ren], src, "flac", tmp_path / "flac")[src / "01 Tone.flac"]
-    st = io.audio_stream(flac)
-    assert st["codec_name"] == "flac" and st["bits_per_raw_sample"] == "24"
-    rendered = sf.read(ren / "01 Tone_test_-10LUFS.wav")[0]
-    assert np.array_equal(sf.read(flac)[0], rendered)  # lossless: same samples
-    tags = {k.upper() for k in io.probe(flac)["format"]["tags"]}
+    out = export.run([ren], src, fmt, tmp_path / fmt)[src / "01 Tone.flac"]
+    st = io.audio_stream(out)
+    assert int(st.get("bits_per_raw_sample") or st["bits_per_sample"]) == 24
+    # float32 holds 24-bit samples exactly
+    assert np.array_equal(io.decode(out)[0], io.decode(ren / "01 Tone_test_-10LUFS.wav")[0])
+    tags = {k.upper() for k in io.probe(out)["format"]["tags"]}
     assert "TITLE" in tags and not [k for k in tags if k.startswith("REPLAYGAIN")]
+    cover, lost, _ = export.carried(src / "01 Tone.flac", out, fmt)
+    assert cover == ("none (WAV can't hold cover art)" if fmt == "wav" else "kept")
+    assert lost == (["lyrics"] if fmt == "wav" else [])
 
 
 def test_export_takes_picked_render_files(tmp_path):

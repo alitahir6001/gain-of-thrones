@@ -10,7 +10,7 @@ work/<album>/
   stems/htdemucs_ft/<track>/{drums,bass,vocals,other}.wav, stems/<track>.log
   renders/<track>_<name>_<LUFS>LUFS.wav    got master
   renders/album/                           got album
-  export/mp3/, export/flac/                got export
+  export/<format>/                         got export
   targets.tsv                              got album
 ```
 
@@ -84,7 +84,7 @@ To carry a single-track A/B winner to the album: shift = winner LUFS minus that 
 
 ## got export
 
-`got export RENDER... --source <src_dir> [--format mp3|flac] [--out DIR]`: each RENDER is a render `.wav`, or a folder with one render per track such as `renders/album/`. Pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`.
+`got export RENDER... --source <src_dir> --format mp3|aac|flac|alac|wav [--out DIR]`: each RENDER is a render `.wav`, or a folder with one render per track such as `renders/album/`. Pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`.
 
 To export one track, or a hand-picked set, pass the render files themselves; there's no need to copy them into a folder:
 
@@ -92,9 +92,20 @@ To export one track, or a hand-picked set, pass the render files themselves; the
 uv run got export "work/<album>/renders/<track>_v9_-10LUFS.wav" --source "<album folder>" --format flac
 ```
 
-Two renders of the same track in one run is an error that lists them. The MP3 gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain.
+Two renders of the same track in one run is an error that lists them. The lossy gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain.
 
-- `mp3`: 320 kbit/s, ID3v2.3. One gain for all files of the run, lowered until every decoded MP3 measures at or under -2 dBTP. It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
-- `flac`: 24-bit, the rendered samples unchanged (-1.2 dBTP ceiling as rendered).
+`--format` is required: the person picks (the skill explains the choices in plain words). One format per run.
 
-It prints the analyze line of every exported file.
+| `--format` | File | Audio | Cover | Tags with no slot (of the Freaks rip's 14) |
+|---|---|---|---|---|
+| `mp3` | .mp3, 320 kbit/s, ID3v2.3 | lossy: one gain, <= -2 dBTP | kept | none |
+| `aac` | .m4a, 256 kbit/s, ffmpeg's built-in encoder | lossy: one gain, <= -2 dBTP | kept | isrc, tracktotal, organization, involvedpeople, net radio owner |
+| `flac` | .flac, 24-bit | the rendered samples unchanged | kept | none |
+| `alac` | .m4a, 24-bit | the rendered samples unchanged | kept | as `aac` |
+| `wav` | .wav, 24-bit | the rendered samples unchanged | none: WAV can't hold it | lyrics, tracktotal, organization, involvedpeople, net radio owner |
+
+- Lossy gain: lowered until every decoded file of the run measures at or under -2 dBTP (ADR 0012). It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
+- AAC uses ffmpeg's built-in `aac` encoder: Apple's `aac_at` added 820 samples to a 3 s test file (ffmpeg 9.0.2), and the built-in one decoded to the exact length.
+- Lossless files keep the render's -1.2 dBTP ceiling.
+
+It prints the analyze line of every exported file, then `carried:` (cover kept or not, and which source tags the format has no slot for). The tag column above was measured with synthetic audio carrying the Freaks rip's tag names; other rips can differ.
