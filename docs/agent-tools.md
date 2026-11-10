@@ -10,7 +10,7 @@ work/<album>/
   stems/htdemucs_ft/<track>/{drums,bass,vocals,other}.wav, stems/<track>.log
   renders/<track>_<name>_<LUFS>LUFS.wav    got master
   renders/album/                           got album
-  export/mp3/, export/flac/                got export
+  export/<format>/                         got export
   targets.tsv                              got album
 ```
 
@@ -18,7 +18,7 @@ Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 
 
 ## got analyze
 
-`got analyze <files...> [--stems DIR]`: measures any file ffmpeg can read. About 5 s per 5-minute track.
+`got analyze <files...> [--stems DIR] [--blocks]`: measures any file ffmpeg can read. About 5 s per 5-minute track.
 
 ```
 03 The Haunted.flac: I -11.6 LUFS | LRA 2.9 | max S -9.6 LUFS | TP +0.2 dBTP | PLR 11.8 dB | DR10 (10.2) | flat-top runs(>=3) 2
@@ -39,7 +39,15 @@ Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 
 | bands | energy per band in dB relative to the file's total. Compare files; the absolute values mean little |
 | highs | finer 2-16 kHz split. >6k crest: cymbal transient sharpness, higher is less squashed |
 
-`--stems DIR` adds each Demucs stem's share of the 2-16 kHz bands, e.g. how much of 4-6 kHz is guitars ("other") versus cymbals ("drums").
+`--stems DIR` adds each Demucs stem's share of the 2-16 kHz bands, e.g. how much of 4-6 kHz is guitars ("other") versus cymbals ("drums"). It also adds a `snare` line under each file of the stems' track: the original rip, the split input and its renders qualify (same rate and length as the drum stem), and other files say skipped.
+
+```
+  snare (proxy; local crest at 500 drum-stem hits): body 150-300 14.06 | attack 1-2k 6.96 | snap 5-8k 7.70 dB
+```
+
+Hits are the drum stem's 150-300 Hz peaks (top 10%, at least 100 ms apart). Each band's number is how far the snare rises above the sound around it: the band's envelope peak at the hit minus its 20th percentile within +-200 ms, median over the hits. Overall level doesn't change it. It is a proxy from one track. It agreed with the ear in two rounds (the drum compressor off; `crack_lift`), and it pointed the wrong way in one: it favored taking the bus comp off, which lost. Compare versions with it, and let the blind A/B decide.
+
+`--blocks` adds a table of loudness per 5 s block, one column per file and, with `--stems`, one per stem (silent blocks read -inf). A section that jumps shows up here. On the Freaks EP, "other" went from -20 to -21 LUFS in the verses to -14.4 to -16 in the solos (stems of the split input), while the mix rose only about 0.5 LU.
 
 ## got split
 
@@ -70,6 +78,8 @@ What it prints and what to check:
 
 `--preset` takes a registered name (`heavy-guitar`) or a path to a preset `.py` file. To iterate, copy the preset into the work folder, change one value, and render with `--preset work/<album>/presets/v2.py --name v2`. `--name` labels the file; it defaults to the preset name.
 
+Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz attacks (snare crack and snap) by at most 2 dB and leaves the cymbal wash alone. Add `from gain_of_thrones.dsp import crack_lift` and append `crack_lift` to the copy's `"drums"` chain. It prints how often it acted. It won one blind round, on one track, with the drum compressor already off (ADR 0016).
+
 ## got abtest
 
 `got abtest --ref ORIGINAL VERSION... [--port N] [--no-browser]`: measures each file's loudness, turns every file down to the quietest one (never up), and serves a blind A/B page on `127.0.0.1` (random free port unless `--port`). Opens the person's default browser unless `--no-browser`. It blocks until stopped, so run it in the background and stop it when the round is done.
@@ -84,9 +94,28 @@ To carry a single-track A/B winner to the album: shift = winner LUFS minus that 
 
 ## got export
 
-`got export <render_dir> --source <src_dir> [--format mp3|flac] [--out DIR]`: pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`. Export a folder with exactly one render per track, such as `renders/album/`.
+`got export RENDER... --source <src_dir> --format mp3|aac|flac|alac|wav [--out DIR]`: each RENDER is a render `.wav`, or a folder with one render per track such as `renders/album/`. Pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`.
 
-- `mp3`: 320 kbit/s, ID3v2.3. One gain for the whole album, lowered until every decoded MP3 measures at or under -2 dBTP. It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
-- `flac`: 24-bit, the rendered samples unchanged (-1.2 dBTP ceiling as rendered).
+To export one track, or a hand-picked set, pass the render files themselves; there's no need to copy them into a folder:
 
-It prints the analyze line of every exported file.
+```
+uv run got export "work/<album>/renders/<track>_v9_-10LUFS.wav" --source "<album folder>" --format flac
+```
+
+Two renders of the same track in one run is an error that lists them. The lossy gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain.
+
+`--format` is required: the person picks (the skill explains the choices in plain words). One format per run.
+
+| `--format` | File | Audio | Cover | Tags with no slot (of the Freaks rip's 14) |
+|---|---|---|---|---|
+| `mp3` | .mp3, 320 kbit/s, ID3v2.3 | lossy: one gain, <= -2 dBTP | kept | none |
+| `aac` | .m4a, 256 kbit/s, ffmpeg's built-in encoder | lossy: one gain, <= -2 dBTP | kept | isrc, tracktotal, organization, involvedpeople, net radio owner |
+| `flac` | .flac, 24-bit | the rendered samples unchanged | kept | none |
+| `alac` | .m4a, 24-bit | the rendered samples unchanged | kept | as `aac` |
+| `wav` | .wav, 24-bit | the rendered samples unchanged | none: WAV can't hold it | lyrics, tracktotal, organization, involvedpeople, net radio owner |
+
+- Lossy gain: lowered until every decoded file of the run measures at or under -2 dBTP (ADR 0012). It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
+- AAC uses ffmpeg's built-in `aac` encoder: Apple's `aac_at` added 820 samples to a 3 s test file (ffmpeg 9.0.2), and the built-in one decoded to the exact length.
+- Lossless files keep the render's -1.2 dBTP ceiling.
+
+It prints the analyze line of every exported file, then `carried:` (cover kept or not, and which source tags the format has no slot for). The tag column above was measured with synthetic audio carrying the Freaks rip's tag names; other rips can differ.

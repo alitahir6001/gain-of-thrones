@@ -8,9 +8,9 @@ Gain of Thrones remasters music you own, such as CD rips or lossless files. It s
 
 1. Set it up once (below), then open [Claude Code](https://claude.com/product/claude-code) in this folder.
 2. Say something like: *"remaster my album in ~/Music/Some Album"*.
-3. The agent measures your rips and tells you, in plain words, how loud, squashed or clipped they are. You tell it what you'd like to hear different: "the vocals are buried", "the cymbals vanish when it gets loud".
+3. The agent measures your rips and tells you, in plain words, how loud, squashed or clipped they are. You tell it what you'd like to hear different: "the vocals are buried", "the cymbals vanish when it gets loud", or simply "a bit louder".
 4. It renders one track, measures it, and opens a blind A/B page. You pick by ear, then reveal.
-5. One change at a time until you're happy, then the whole album with one loudness shift for every track (so the song-to-song flow survives), and an MP3 or FLAC copy with your tags and cover art.
+5. One change at a time until you're happy, then the whole album with one loudness shift for every track (so the song-to-song flow survives), or only the tracks you pick, and copies in the formats you choose (MP3, AAC, FLAC, ALAC or WAV) with your tags and cover art, as far as each format holds them.
 
 ## Setup (once)
 

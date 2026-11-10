@@ -1,6 +1,6 @@
 ---
 name: remaster-session
-description: Run a remastering session with the person for music they own (CD rips, lossless files). Measure the rips, match the genre's research and preset, turn what they want to hear different into measured moves, render, run blind level-matched A/B tests, then do the whole album and export MP3 or FLAC. Use whenever someone asks to remaster, master, fix, clean up, rebalance, or make louder or clearer an album or a track.
+description: Run a remastering session with the person for music they own (CD rips, lossless files). Measure the rips, match the genre's research and preset, turn what they want to hear different into measured moves, render, run blind level-matched A/B tests, then do the whole album and export it in the formats they pick (MP3, AAC, FLAC, ALAC, WAV). Use whenever someone asks to remaster, master, fix, clean up, rebalance, or make louder or clearer an album or a track.
 ---
 
 # Remaster session
@@ -56,6 +56,10 @@ Ask in their words, one question at a time, then map each complaint to a measure
 | Not loud enough | I and PLR vs original | `--target` up 0.5-1 LU; stop when limiter GR max passes about 3 dB or flat-tops appear |
 | Squashed, tiring | PLR, DR, LRA, limiter GR | `--target` down; `BUS_COMP["target_drop_db"]` 1.5 toward 1.0 |
 | Bass boomy or weak | sub and bass bands | bass `LowShelfFilter(80, ...)` within 3 dB; `BALANCE["bass"]` within 1 dB |
+| Snare hidden or buried (one track's evidence) | ask what the original does better: body, crack/snap, level, or less wash around it; then the `snare` line of `got analyze <original> <renders> --stems <stems>` (a proxy) | in the order tried: drums `BALANCE` +1 LU didn't win; the drum-stem `Compressor` off won; drum `PeakFilter(1500, 2, 1.0)` and the bus comp off didn't win; `crack_lift` at the end of the drum chain won, with the compressor already off |
+| Solo too loud or sharp (one track's evidence) | `got analyze <split input> --stems <stems> --blocks`: "other" in the solo blocks vs the verses (+5 LU on that track) | a slow leveler on "other" lost blind; by the final version the person heard the solos as fine, with no solo-specific change |
+
+Rows marked "one track's evidence" come from the first real session (Freaks EP, 2026-11; `crack_lift` is ADR 0016). Treat them as leads to test blind, not as settled moves.
 
 ## 5. Render one track, measure, blind A/B
 
@@ -100,11 +104,30 @@ Carry the winning loudness to the album as a shift: shift = winner LUFS minus th
 uv run got album "<album folder>" --target <LUFS for the loudest track> --preset "<winning preset>"
 ```
 
-It is resumable if interrupted. Check every track's printout, and offer a quick A/B on one or two other tracks against their originals. Then export:
+It is resumable if interrupted. Check every track's printout, and offer a quick A/B on one or two other tracks against their originals.
+
+Then ask which format or formats they want, and explain the choice in plain words:
+
+| Format | What it's for | Good to know |
+|---|---|---|
+| MP3 (320 kbit/s) | plays on anything | lossy; turned down until it can't clip after encoding (about 1 dB on the Freaks EP) |
+| AAC (.m4a, 256 kbit/s) | Apple's usual format; most phones and cars play it too | lossy, with the same safety margin as MP3; ISRC and track-total tags have no slot |
+| FLAC (24-bit) | lossless archive: exactly the rendered samples | for Apple Music and iPhones, ALAC is the lossless choice |
+| ALAC (.m4a, 24-bit) | Apple Lossless: the same samples, for Apple Music and iPhones | ISRC and track-total tags have no slot |
+| WAV (24-bit) | lossless, and any program opens it | no cover art, fewer tags (no lyrics or track total), biggest files |
+
+Run one export per format they pick:
 
 ```
-uv run got export "work/<album>/renders/album" --source "<album folder>" --format mp3    # phone/car, <= -2 dBTP
-uv run got export "work/<album>/renders/album" --source "<album folder>" --format flac   # archive, as rendered
+uv run got export "work/<album>/renders/album" --source "<album folder>" --format <mp3|aac|flac|alac|wav>
+```
+
+Each file's `carried:` line says whether the cover came along and which source tags the format has no slot for. Tell them about anything that didn't carry.
+
+If they only want the track you worked on, or a few picked renders, skip the album run and pass the render files instead of the folder (export an album's tracks in one run: the lossy gain is shared only within a run):
+
+```
+uv run got export "work/<album>/renders/<track>_v3_-10LUFS.wav" --source "<album folder>" --format flac
 ```
 
 Report where the files are and the export's numbers. Remasters of commercial records are for their personal listening.
