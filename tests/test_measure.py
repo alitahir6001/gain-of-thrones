@@ -2,7 +2,7 @@ import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
 
-from gain_of_thrones import measure
+from gain_of_thrones import io, measure
 
 SR = 44100
 
@@ -38,3 +38,13 @@ def test_pyloudnorm_agrees_with_ffmpeg(tmp_path):
     sf.write(p, x, SR, subtype="FLOAT")
     I_py = pyln.Meter(SR).integrated_loudness(sf.read(p)[0])
     assert abs(measure.ebur128(p)["I"] - I_py) < 0.1
+
+
+def test_format_line_shows_bit_depth_only_for_lossless(tmp_path):
+    for name, opts in (("t.mp3", ["-c:a", "libmp3lame"]),
+                       ("t.flac", ["-c:a", "flac", "-sample_fmt", "s32", "-bits_per_raw_sample", "24"])):
+        io.run([io.tool("ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", *opts,
+                tmp_path / name])
+    mp3, flac = (measure.report(tmp_path / n).splitlines()[1] for n in ("t.mp3", "t.flac"))
+    assert "-bit" not in mp3 and "?" not in mp3
+    assert " 24-bit " in flac

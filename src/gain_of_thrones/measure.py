@@ -95,17 +95,19 @@ def analyze(path):
     f, p = spectrum(x, sr)
     return {**ebur128(path), "DR": dr(x, sr), "flat_tops": flat_tops(x), "bands": band_db(f, p, BANDS),
             "hf": band_db(f, p, HF_BANDS), "hf_crest": hf_crest(x, sr), "sr": sr, "channels": st["channels"],
-            "codec": st["codec_name"], "bits": st.get("bits_per_raw_sample") or st.get("bits_per_sample"),
+            # lossy codecs have no bit depth: ffprobe reports none or 0
+            "codec": st["codec_name"], "bits": int(st.get("bits_per_raw_sample") or st.get("bits_per_sample") or 0),
             "duration": len(x) / sr}
 
 
 def report(path):
     a = analyze(path)
     drs = "DR n/a (under 6 s)" if np.isnan(a["DR"]) else f"DR{a['DR']:.0f} ({a['DR']:.1f})"
+    bits = f"{a['bits']}-bit " if a["bits"] else ""
     return "\n".join([
         f"{Path(path).name}: I {a['I']:.1f} LUFS | LRA {a['LRA']:.1f} | max S {a['S_max']:.1f} LUFS | "
         f"TP {a['TP']:+.1f} dBTP | PLR {a['TP'] - a['I']:.1f} dB | {drs} | flat-top runs(>=3) {a['flat_tops']}",
-        f"  format: {a['codec']} {a['sr']} Hz {a['channels']} ch {a['bits'] or '?'}-bit {a['duration']:.3f} s",
+        f"  format: {a['codec']} {a['sr']} Hz {a['channels']} ch {bits}{a['duration']:.3f} s",
         "  bands:  " + " | ".join(f"{k} {v:.1f}" for k, v in a["bands"].items()) + " dB re total",
         "  highs:  " + " | ".join(f"{k} {v:.1f}" for k, v in a["hf"].items())
         + f" dB re total | >6k crest {a['hf_crest']:.1f} dB",
