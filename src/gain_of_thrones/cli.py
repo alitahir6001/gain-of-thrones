@@ -42,10 +42,7 @@ def cmd_abtest(a):
 
 def cmd_export(a):
     from . import export
-    render_dir = Path(a.render_dir).resolve()
-    # renders/album -> <work>/export/<fmt>; any other folder -> <its parent>/export/<fmt>
-    work = render_dir.parent.parent if render_dir.parent.name == "renders" else render_dir.parent
-    export.run(render_dir, a.source, a.format, Path(a.out) if a.out else work / "export" / a.format)
+    export.run(a.renders, a.source, a.format, Path(a.out) if a.out else export.default_out(a.renders, a.format))
 
 
 def main(argv=None):
@@ -92,7 +89,8 @@ def main(argv=None):
     p.set_defaults(func=cmd_abtest)
 
     p = sub.add_parser("export", help="MP3 320k (album <= -2 dBTP) or 24-bit FLAC, with the source tags and cover")
-    p.add_argument("render_dir", help="folder with one render per track, e.g. <work>/renders/album")
+    p.add_argument("renders", nargs="+",
+                   help="render .wav files, or folders with one render per track (e.g. <work>/renders/album)")
     p.add_argument("--source", required=True, help="folder of the original files (tags and cover come from here)")
     p.add_argument("--format", choices=["mp3", "flac"], default="mp3")
     p.add_argument("--out", help="default: <work>/export/<format>")

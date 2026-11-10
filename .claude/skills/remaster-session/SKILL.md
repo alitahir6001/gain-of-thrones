@@ -107,4 +107,10 @@ uv run got export "work/<album>/renders/album" --source "<album folder>" --forma
 uv run got export "work/<album>/renders/album" --source "<album folder>" --format flac   # archive, as rendered
 ```
 
+If they only want the track you worked on, or a few picked renders, skip the album run and pass the render files instead of the folder (export an album's tracks in one run: the MP3 gain is shared only within a run):
+
+```
+uv run got export "work/<album>/renders/<track>_v3_-10LUFS.wav" --source "<album folder>" --format flac
+```
+
 Report where the files are and the export's numbers. Remasters of commercial records are for their personal listening.

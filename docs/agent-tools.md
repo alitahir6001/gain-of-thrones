@@ -84,9 +84,17 @@ To carry a single-track A/B winner to the album: shift = winner LUFS minus that 
 
 ## got export
 
-`got export <render_dir> --source <src_dir> [--format mp3|flac] [--out DIR]`: pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`. Export a folder with exactly one render per track, such as `renders/album/`.
+`got export RENDER... --source <src_dir> [--format mp3|flac] [--out DIR]`: each RENDER is a render `.wav`, or a folder with one render per track such as `renders/album/`. Pairs each render with the source file whose name starts the render's name, and copies the source's tags and embedded cover. ReplayGain tags are dropped (the levels changed). Default out: `<work>/export/<format>/`.
 
-- `mp3`: 320 kbit/s, ID3v2.3. One gain for the whole album, lowered until every decoded MP3 measures at or under -2 dBTP. It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
+To export one track, or a hand-picked set, pass the render files themselves; there's no need to copy them into a folder:
+
+```
+uv run got export "work/<album>/renders/<track>_v9_-10LUFS.wav" --source "<album folder>" --format flac
+```
+
+Two renders of the same track in one run is an error that lists them. The MP3 gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain.
+
+- `mp3`: 320 kbit/s, ID3v2.3. One gain for all files of the run, lowered until every decoded MP3 measures at or under -2 dBTP. It is measured after encoding because encoders overshoot: on the Freaks EP the predicted -0.8 dB left MP3s at -1.7 dBTP, and the measured answer was -1.16 dB.
 - `flac`: 24-bit, the rendered samples unchanged (-1.2 dBTP ceiling as rendered).
 
 It prints the analyze line of every exported file.
