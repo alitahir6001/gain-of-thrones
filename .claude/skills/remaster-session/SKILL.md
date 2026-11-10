@@ -56,6 +56,10 @@ Ask in their words, one question at a time, then map each complaint to a measure
 | Not loud enough | I and PLR vs original | `--target` up 0.5-1 LU; stop when limiter GR max passes about 3 dB or flat-tops appear |
 | Squashed, tiring | PLR, DR, LRA, limiter GR | `--target` down; `BUS_COMP["target_drop_db"]` 1.5 toward 1.0 |
 | Bass boomy or weak | sub and bass bands | bass `LowShelfFilter(80, ...)` within 3 dB; `BALANCE["bass"]` within 1 dB |
+| Snare hidden or buried (one track's evidence) | ask what the original does better: body, crack/snap, level, or less wash around it; then the `snare` line of `got analyze <original> <renders> --stems <stems>` (a proxy) | in the order tried: drums `BALANCE` +1 LU didn't win; the drum-stem `Compressor` off won; drum `PeakFilter(1500, 2, 1.0)` and the bus comp off didn't win; `crack_lift` at the end of the drum chain won, with the compressor already off |
+| Solo too loud or sharp (one track's evidence) | `got analyze <split input> --stems <stems> --blocks`: "other" in the solo blocks vs the verses (+5 LU on that track) | a slow leveler on "other" lost blind; by the final version the person heard the solos as fine, with no solo-specific change |
+
+Rows marked "one track's evidence" come from the first real session (Freaks EP, 2026-11; `crack_lift` is ADR 0016). Treat them as leads to test blind, not as settled moves.
 
 ## 5. Render one track, measure, blind A/B
 

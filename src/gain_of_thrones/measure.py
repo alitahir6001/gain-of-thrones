@@ -3,14 +3,16 @@ import re
 from pathlib import Path
 
 import numpy as np
+import pyloudnorm as pyln
 import soundfile as sf
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, find_peaks, sosfilt, sosfiltfilt
 
 from . import io
 
 BANDS = [(20, 60, "sub"), (60, 250, "bass"), (250, 500, "low-mid"), (500, 2000, "mid"),
          (2000, 4000, "upper-mid"), (4000, 8000, "presence"), (8000, 16000, "air"), (16000, 20000, ">16k")]
 HF_BANDS = [(2000, 4000, "2-4k"), (4000, 6000, "4-6k"), (6000, 10000, "6-10k"), (10000, 16000, "10-16k")]
+SNARE_BANDS = {"body 150-300": (150, 300), "attack 1-2k": (1000, 2000), "snap 5-8k": (5000, 8000)}
 STEMS = ("drums", "bass", "vocals", "other")
 
 
@@ -74,6 +76,38 @@ def hf_crest(x, sr):
     return 20 * np.log10(np.abs(hp).max() / np.sqrt(np.mean(hp ** 2)))
 
 
+def block_loudness(x, sr, secs=5):
+    """Integrated loudness (LUFS) of each whole secs-long block: shows sections, such as a solo, that jump."""
+    m, n = pyln.Meter(sr), secs * sr
+    return [m.integrated_loudness(x[i:i + n]) for i in range(0, len(x) - n + 1, n)]
+
+
+def band_env_db(x, sr, lo, hi, ms=5):
+    """Power envelope (dB, ms moving average) of the channel mean's lo-hi band, zero-phase."""
+    b = sosfiltfilt(butter(4, [lo, hi], "bandpass", fs=sr, output="sos"), x.mean(1) if x.ndim > 1 else x)
+    k = int(sr * ms / 1000)
+    return 10 * np.log10(np.convolve(b ** 2, np.ones(k) / k, "same") + 1e-12)
+
+
+def snare_hits(drums, sr):
+    """Snare-ish hits on the drum stem: 150-300 Hz envelope peaks in its top 10%, >= 100 ms apart, 200 ms from
+    either end."""
+    e = band_env_db(drums, sr, 150, 300)
+    pk, _ = find_peaks(e, height=np.percentile(e, 90), distance=int(0.1 * sr))
+    return pk[(pk > sr // 5) & (pk < len(e) - sr // 5)]
+
+
+def snare_crest(x, sr, hits):
+    """How far the snare sticks out of the mix, a proxy: per band, the median over hits of the envelope's peak
+    within -10..+20 ms of the hit minus its 20th percentile within +-200 ms (dB)."""
+    a, b, c = int(0.01 * sr), int(0.02 * sr), int(0.2 * sr)
+    out = {}
+    for name, (lo, hi) in SNARE_BANDS.items():
+        e = band_env_db(x, sr, lo, hi)
+        out[name] = float(np.median([e[p - a:p + b].max() - np.percentile(e[p - c:p + c], 20) for p in hits]))
+    return out
+
+
 def stem_share(stems_dir):
     """Percent of each high band's energy held by each Demucs stem."""
     P = {}
@@ -119,3 +153,31 @@ def stem_report(stems_dir):
     for name, by in stem_share(stems_dir).items():
         lines.append(f"  {name:>6s}  " + "  ".join(f"{s} {v:3.0f}%" for s, v in by.items()))
     return "\n".join(lines)
+
+
+def snare_report(path, drums, sr_drums, hits):
+    """The snare crest line for one file, if it is the stems' track (same rate and length as the drum stem)."""
+    x, sr = io.decode(path)
+    if sr != sr_drums or len(x) != len(drums):
+        return "  snare: skipped, not the stems' track (rate or length differs from the drum stem)"
+    c = snare_crest(x, sr, hits)
+    return (f"  snare (proxy; local crest at {len(hits)} drum-stem hits): "
+            + " | ".join(f"{k} {v:.2f}" for k, v in c.items()) + " dB")
+
+
+def block_report(paths, stems_dir=None, secs=5):
+    """Loudness per block, one column per file and, with stems_dir, per stem."""
+    cols = {}
+    for i, p in enumerate(paths, 1):
+        cols[f"[{i}]"] = block_loudness(*io.decode(p), secs)
+    if stems_dir:
+        for s in STEMS:
+            cols[s] = block_loudness(*sf.read(Path(stems_dir) / f"{s}.wav"), secs)
+    if not cols:
+        return "blocks: no files or stems given"
+    lines = [f"loudness per {secs} s block (LUFS):", "  block " + "".join(f"{k:>8s}" for k in cols)]
+    for j in range(max(len(v) for v in cols.values())):
+        t = j * secs
+        lines.append(f"  {t // 60:2d}:{t % 60:02d} " + "".join(f"{v[j]:8.1f}" if j < len(v) else " " * 8
+                                                           for v in cols.values()))
+    return "\n".join(lines + [f"  [{i}] {Path(p).name}" for i, p in enumerate(paths, 1)])

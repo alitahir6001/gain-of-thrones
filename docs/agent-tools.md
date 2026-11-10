@@ -18,7 +18,7 @@ Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 
 
 ## got analyze
 
-`got analyze <files...> [--stems DIR]`: measures any file ffmpeg can read. About 5 s per 5-minute track.
+`got analyze <files...> [--stems DIR] [--blocks]`: measures any file ffmpeg can read. About 5 s per 5-minute track.
 
 ```
 03 The Haunted.flac: I -11.6 LUFS | LRA 2.9 | max S -9.6 LUFS | TP +0.2 dBTP | PLR 11.8 dB | DR10 (10.2) | flat-top runs(>=3) 2
@@ -39,7 +39,15 @@ Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 
 | bands | energy per band in dB relative to the file's total. Compare files; the absolute values mean little |
 | highs | finer 2-16 kHz split. >6k crest: cymbal transient sharpness, higher is less squashed |
 
-`--stems DIR` adds each Demucs stem's share of the 2-16 kHz bands, e.g. how much of 4-6 kHz is guitars ("other") versus cymbals ("drums").
+`--stems DIR` adds each Demucs stem's share of the 2-16 kHz bands, e.g. how much of 4-6 kHz is guitars ("other") versus cymbals ("drums"). It also adds a `snare` line under each file of the stems' track: the original rip, the split input and its renders qualify (same rate and length as the drum stem), and other files say skipped.
+
+```
+  snare (proxy; local crest at 500 drum-stem hits): body 150-300 14.06 | attack 1-2k 6.96 | snap 5-8k 7.70 dB
+```
+
+Hits are the drum stem's 150-300 Hz peaks (top 10%, at least 100 ms apart). Each band's number is how far the snare rises above the sound around it: the band's envelope peak at the hit minus its 20th percentile within +-200 ms, median over the hits. Overall level doesn't change it. It is a proxy from one track. It agreed with the ear in two rounds (the drum compressor off; `crack_lift`), and it pointed the wrong way in one: it favored taking the bus comp off, which lost. Compare versions with it, and let the blind A/B decide.
+
+`--blocks` adds a table of loudness per 5 s block, one column per file and, with `--stems`, one per stem (silent blocks read -inf). A section that jumps shows up here. On the Freaks EP, "other" went from -20 to -21 LUFS in the verses to -14.4 to -16 in the solos (stems of the split input), while the mix rose only about 0.5 LU.
 
 ## got split
 

@@ -4,9 +4,18 @@ from pathlib import Path
 
 
 def cmd_analyze(a):
+    import soundfile as sf
+
     from . import measure
+    if a.stems:
+        drums, sr = sf.read(Path(a.stems) / "drums.wav")
+        hits = measure.snare_hits(drums, sr)
     for p in a.files:
         print(measure.report(p))
+        if a.stems:
+            print(measure.snare_report(p, drums, sr, hits))
+    if a.blocks:
+        print(measure.block_report(a.files, a.stems))
     if a.stems:
         print(measure.stem_report(a.stems))
 
@@ -51,7 +60,9 @@ def main(argv=None):
 
     p = sub.add_parser("analyze", help="loudness, dynamics, clipping and band balance of audio files")
     p.add_argument("files", nargs="*")
-    p.add_argument("--stems", metavar="DIR", help="also print each stem's share of the high bands")
+    p.add_argument("--stems", metavar="DIR",
+                   help="also print each stem's share of the high bands, and a snare line for files of the stems' track")
+    p.add_argument("--blocks", action="store_true", help="also print loudness per 5 s block (files, and stems)")
     p.set_defaults(func=cmd_analyze)
 
     p = sub.add_parser("master", help="render one track's stems through a preset at one or more loudness targets")

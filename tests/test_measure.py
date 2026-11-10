@@ -48,3 +48,26 @@ def test_format_line_shows_bit_depth_only_for_lossless(tmp_path):
     mp3, flac = (measure.report(tmp_path / n).splitlines()[1] for n in ("t.mp3", "t.flac"))
     assert "-bit" not in mp3 and "?" not in mp3
     assert " 24-bit " in flac
+
+
+def test_block_loudness_shows_a_step():
+    x = np.random.default_rng(1).normal(0, 0.05, (10 * SR, 2))
+    x[5 * SR:] *= 2
+    a, b = measure.block_loudness(x, SR, 5)
+    assert abs(b - a - 20 * np.log10(2)) < 0.05
+
+
+def test_snare_crest_ignores_level_and_drops_under_wash():
+    rng = np.random.default_rng(4)
+    drums = rng.normal(0, 0.003, (10 * SR, 2))
+    k = int(0.1 * SR)
+    onsets = [int(t * SR) for t in np.arange(0.25, 9.8, 0.25)]  # 39 hits, 250 ms apart
+    for i in onsets:
+        drums[i:i + k] += rng.normal(0, 0.3, (k, 2)) * np.exp(-np.arange(k) / (0.03 * SR))[:, None]
+    hits = measure.snare_hits(drums, SR)
+    assert len(hits) == len(onsets) and all(abs(h - i) < 0.05 * SR for h, i in zip(hits, onsets))
+    crest = measure.snare_crest(drums, SR, hits)
+    quieter = measure.snare_crest(drums * 0.25, SR, hits)
+    assert all(abs(quieter[b] - crest[b]) < 0.01 for b in crest)  # only the 1e-12 floor term moves it
+    washed = measure.snare_crest(drums + rng.normal(0, 0.03, drums.shape), SR, hits)
+    assert all(washed[b] < crest[b] - 3 for b in crest)
