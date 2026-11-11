@@ -4,6 +4,12 @@
 
 Gain of Thrones remasters music you own, such as CD rips or lossless files. It splits each track into drums, bass, vocals and "other" with Demucs, fixes balance and masking on each stem within limits set by research, adds back everything the split missed, and limits the result without clipping. Every render is measured before you hear it. Every comparison is a blind, level-matched A/B in your browser, so a version can't win just by being louder.
 
+<!-- TODO: screenshot of the blind A/B page, saved as docs/images/ab-page.png, then uncomment:
+![Blind, level-matched A/B comparison in the browser](docs/images/ab-page.png)
+-->
+
+> **Heads-up:** on a Mac, splitting a 45-minute album takes close to **3 hours of CPU time** (it runs in the background). Details under [What to expect](#what-to-expect).
+
 ## How a session goes
 
 1. Set it up once (below), then open [Claude Code](https://claude.com/product/claude-code) in this folder.
@@ -16,9 +22,18 @@ Gain of Thrones remasters music you own, such as CD rips or lossless files. It s
 
 - **ffmpeg** on your PATH: `brew install ffmpeg` (macOS), `winget install ffmpeg` (Windows), `sudo apt install ffmpeg` (Debian/Ubuntu).
 - **uv**: see [docs.astral.sh/uv](https://docs.astral.sh/uv/).
-- In this folder: `uv sync`. It builds a Python 3.11 environment with pinned versions. The first split downloads about 340 MB of Demucs model weights from Hugging Face.
+- **Claude Code**: see [claude.com/product/claude-code](https://claude.com/product/claude-code).
 
-Then open Claude Code here and tell it which album.
+Then:
+
+```bash
+git clone https://github.com/alitahir6001/gain-of-thrones.git
+cd gain-of-thrones
+uv sync
+claude
+```
+
+`uv sync` builds a Python 3.11 environment with pinned versions. The first split downloads about 340 MB of Demucs model weights from Hugging Face. In Claude Code, tell it which album.
 
 ## What to expect
 
