@@ -8,7 +8,8 @@ date: 2026-11-08
 The tool is built for a person and their agent working together (`CLAUDE.md:3`). Meters can say what changed and what it cost, but not which version sounds better, and only the person listens. Who decides what ships, and how?
 
 ## Considered Options
-* (alternatives not recorded)
+* The person listens and decides; the agent measures and explains
+* Match a loudness target or a reference track automatically
 
 ## Decision Outcome
 Chosen option: "The person listens and decides; the agent runs the tools, measures every render before the person hears it, and explains the numbers, but never says which version sounds better", because the project is built on the principle that "their ears decide", with numbers reporting what a choice costs (`.claude/skills/remaster-session/SKILL.md:14`; `README.md:3`). Each round changes one thing, "so both of you know what made the difference" (`.claude/skills/remaster-session/SKILL.md:15`).
