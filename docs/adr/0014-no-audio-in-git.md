@@ -8,7 +8,8 @@ date: 2026-11-08
 The tool works on records people own, usually commercial CDs (`README.md:5`, `:41`), and its work folders hold stems, renders and exports, about 5 GB per 45-minute album (`README.md:26`). The repository is public.
 
 ## Considered Options
-* (alternatives not recorded)
+* No audio in git; tests use synthetic signals
+* Commit short test clips cut from real recordings
 
 ## Decision Outcome
 Chosen option: "No audio in git: `.gitignore` excludes audio formats and the work folders, a test fails if git tracks any audio file, and tests use synthetic signals only" (`CLAUDE.md:8`; `.gitignore:1-16`), because remasters of commercial records are for personal listening (`README.md:41`), and the work files are large (`README.md:26`).
