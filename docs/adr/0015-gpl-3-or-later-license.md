@@ -8,7 +8,8 @@ date: 2026-11-08
 The audio effects come from pedalboard, which is GPL-3.0; Demucs and pyloudnorm are MIT (`README.md:39`; `pyproject.toml:12`, `:14`). The project needed a license compatible with its dependencies.
 
 ## Considered Options
-* (alternatives not recorded)
+* GPL-3.0-or-later
+* GPL-3.0-only
 
 ## Decision Outcome
 Chosen option: "GPL-3.0-or-later", because the project uses pedalboard (GPL-3.0) (`README.md:39`; `pyproject.toml:6-7`).
@@ -18,4 +19,4 @@ Chosen option: "GPL-3.0-or-later", because the project uses pedalboard (GPL-3.0)
 * Bad, because anyone who distributes a modified version must license it under the GPL too (inferred from the license terms in `LICENSE`).
 
 ## More Information
-Evidence: `README.md:37-41`, `LICENSE` (commit dd8a412); `pyproject.toml:6-7`, `:12`, `:14` (commit 058ea59). Outside this decision: the htdemucs model weights are not part of the repository, and their license is unclear (`README.md:41`). The date is the first commit; earlier history is not in git.
+Considered options were reconstructed on 2026-11-10; they were not weighed at the time. A permissive license (MIT, Apache-2.0) is not an option while pedalboard (GPL-3.0) is a dependency. Evidence: `README.md:37-41`, `LICENSE` (commit dd8a412); `pyproject.toml:6-7`, `:12`, `:14` (commit 058ea59). Outside this decision: the htdemucs model weights are not part of the repository, and their license is unclear (`README.md:41`). The date is the first commit; earlier history is not in git.
