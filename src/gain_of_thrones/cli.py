@@ -49,6 +49,11 @@ def cmd_abtest(a):
     abtest.serve(a.ref, a.versions, open_browser=not a.no_browser, port=a.port)
 
 
+def cmd_plot(a):
+    from . import plot
+    plot.render(a.ref, a.remaster, a.out)
+
+
 def cmd_export(a):
     from . import export
     export.run(a.renders, a.source, a.format, Path(a.out) if a.out else export.default_out(a.renders, a.format))
@@ -98,6 +103,12 @@ def main(argv=None):
     p.add_argument("--port", type=int, default=0, help="default: a random free port")
     p.add_argument("--no-browser", action="store_true", help="print the URL without opening a browser")
     p.set_defaults(func=cmd_abtest)
+
+    p = sub.add_parser("plot", help="SVG of short-term loudness over time, original vs remaster")
+    p.add_argument("remaster", help="the render to plot against the original")
+    p.add_argument("--ref", required=True, help="the original")
+    p.add_argument("--out", "-o", required=True, help="output .svg path")
+    p.set_defaults(func=cmd_plot)
 
     from .export import FORMATS
     p = sub.add_parser("export", help="MP3/AAC (one gain, <= -2 dBTP) or 24-bit FLAC/ALAC/WAV, with the source "

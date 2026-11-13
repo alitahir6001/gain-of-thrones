@@ -24,7 +24,8 @@ def ebur128(path):
     cut = e.rfind("Summary:")
     g = lambda k: float(re.search(k + r":\s+([-+]?[\d.]+)", e[cut:]).group(1))
     s_max = max(float(m) for m in re.findall(r"S:\s*([-+]?[\d.]+)", e[:cut]))
-    return {"I": g("I"), "LRA": g("LRA"), "S_max": s_max, "TP": g("Peak")}
+    frames = [(float(t), float(s)) for t, s in re.findall(r"t:\s*([\d.]+)\s.*?S:\s*([-+]?[\d.]+)", e[:cut])]
+    return {"I": g("I"), "LRA": g("LRA"), "S_max": s_max, "TP": g("Peak"), "frames": frames}
 
 
 def dr(x, sr):
