@@ -4,9 +4,7 @@
 
 Gain of Thrones remasters music you own, such as CD rips or lossless files. It splits each track into drums, bass, vocals and "other" with Demucs, fixes balance and masking on each stem within limits set by research, adds back everything the split missed, and limits the result without clipping. Every render is measured before you hear it. Every comparison is a blind, level-matched A/B in your browser, so a version can't win just by being louder.
 
-<!-- TODO: screenshot of the blind A/B page, saved as docs/images/ab-page.png, then uncomment:
-![Blind, level-matched A/B comparison in the browser](docs/images/ab-page.png)
--->
+![The blind, level-matched A/B page: the original and two shuffled remasters of one track, played in lockstep](docs/images/ab-page.png)
 
 > **Heads-up:** on a Mac, splitting a 45-minute album takes close to **3 hours of CPU time** (it runs in the background). Details under [What to expect](#what-to-expect).
 
@@ -17,6 +15,10 @@ Gain of Thrones remasters music you own, such as CD rips or lossless files. It s
 3. The agent measures your rips and tells you, in plain words, how loud, squashed or clipped they are. You tell it what you'd like to hear different: "the vocals are buried", "the cymbals vanish when it gets loud", or simply "a bit louder".
 4. It renders one track, measures it, and opens a blind A/B page. You pick by ear, then reveal.
 5. One change at a time until you're happy, then the whole album with one loudness shift for every track (so the song-to-song flow survives), or only the tracks you pick, and copies in the formats you choose (MP3, AAC, FLAC, ALAC or WAV) with your tags and cover art, as far as each format holds them.
+
+`got plot` charts what a remaster did. Here, a track from a heavy metal CD against the `heavy-guitar` preset at -10.8 LUFS: 0.8 LU louder, and true peak down from +0.2 dBTP (over full scale) to -1.3 dBTP.
+
+![Short-term loudness over time, original vs remaster](docs/images/loudness.svg)
 
 ## Setup (once)
 
