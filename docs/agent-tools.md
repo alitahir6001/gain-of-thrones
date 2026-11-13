@@ -102,7 +102,7 @@ To export one track, or a hand-picked set, pass the render files themselves; the
 uv run got export "work/<album>/renders/<track>_v9_-10LUFS.wav" --source "<album folder>" --format flac
 ```
 
-Two renders of the same track in one run is an error that lists them. The lossy gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain.
+Two renders of the same track in one run is an error that lists them. The lossy gain is shared by the files of one run, so export an album's tracks in one run; a track exported on its own gets its own gain. After the first passing gain, it bisects back up toward the last failing one (within 0.05 dB, at most 9 encodes in all), because a decoded true peak doesn't fall in step with the gain.
 
 `--format` is required: the person picks (the skill explains the choices in plain words). One format per run.
 
