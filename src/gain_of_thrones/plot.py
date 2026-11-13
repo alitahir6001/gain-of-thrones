@@ -18,14 +18,12 @@ SERIES_STYLE = [  # original, then remaster
 MINUS = "−"
 
 
-def axis_range(values, pad=1.0, step=3, min_span=12):
-    """LUFS axis (lo, hi) on multiples of step: covers the 2nd percentile to the max, at least min_span wide."""
+def axis_range(values, pad=1.0, step=3, min_span=12, max_span=30):
+    """LUFS axis (lo, hi) on multiples of step covering all values, min_span to max_span wide (fade-outs clamp)."""
     v = np.asarray(values, float)
-    lo = math.floor((np.percentile(v, 2) - pad) / step) * step
+    lo = math.floor((v.min() - pad) / step) * step
     hi = math.ceil((v.max() + pad) / step) * step
-    if hi - lo < min_span:
-        lo = hi - min_span
-    return lo, hi
+    return max(min(lo, hi - min_span), hi - max_span), hi
 
 
 def time_step(dur):

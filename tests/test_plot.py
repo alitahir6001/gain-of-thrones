@@ -25,6 +25,12 @@ def test_axis_range_is_on_3_db_steps_covers_the_data_and_spans_at_least_12():
     assert plot.axis_range([-14.0, -13.5]) == (-24, -12)
 
 
+def test_axis_range_keeps_a_short_quiet_break_but_caps_a_fade_out():
+    loud = [-11.0] * 98
+    assert plot.axis_range(loud + [-19.5, -19.0]) == (-21, -9)  # 2% of the song, still on the chart
+    assert plot.axis_range(loud + [-70.0]) == (-39, -9)
+
+
 def test_time_step_keeps_at_most_10_major_ticks():
     assert [plot.time_step(d) for d in (45, 180, 600, 3600)] == [5, 30, 60, 600]
 
