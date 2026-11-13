@@ -78,3 +78,20 @@ def test_default_out_is_beside_renders(tmp_path):
     assert export.default_out([work / "renders" / "x.wav"], "flac") == work / "export" / "flac"
     assert export.default_out([work / "renders" / "album"], "mp3") == work / "export" / "mp3"
     assert export.default_out([tmp_path / "picked"], "flac") == tmp_path.resolve() / "export" / "flac"
+
+
+def test_next_gain_steps_down_until_a_pass():
+    assert export.next_gain([(-1.0, -1.7)]) == -1.35
+
+
+def test_next_gain_bisects_up_to_the_highest_pass():
+    # v9 AAC: -1.07 gave -1.90 dBTP, a lower gain gave a higher peak, -1.42 passed at -2.32
+    tries = [(-1.07, -1.90), (-1.22, -1.85), (-1.42, -2.32)]
+    assert export.next_gain(tries) == -1.32
+    assert export.next_gain(tries + [(-1.32, -2.05)]) == -1.27  # passing pushes the floor up
+    assert export.next_gain(tries + [(-1.30, -1.95)]) == -1.36  # failing pulls the roof down
+
+
+def test_next_gain_stops_when_within_tolerance_or_nothing_failed_above():
+    assert export.next_gain([(-1.30, -1.98), (-1.34, -2.01)]) is None
+    assert export.next_gain([(0.0, -2.5)]) is None
