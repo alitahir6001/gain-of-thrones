@@ -39,6 +39,15 @@ def curve(frames):
     return f[:n, 0].reshape(-1, k).mean(1), f[:n, 1].reshape(-1, k).mean(1)
 
 
+def spread(ys, gap=26):
+    """Two label y positions moved apart symmetrically until they are at least gap apart."""
+    a, b = ys
+    if abs(a - b) >= gap:
+        return [a, b]
+    mid, half = (a + b) / 2, gap / 2
+    return [mid - half, mid + half] if a <= b else [mid + half, mid - half]
+
+
 def fmt_db(v, unit="", plus=False):
     s = f"{abs(v):.1f}"
     sign = MINUS if v < 0 else ("+" if plus and v > 0 else "")
@@ -143,8 +152,7 @@ def svg(title, series):
           'stroke-width="1.4" stroke-dasharray="7 6" stroke-opacity=".75"/>')
         a(f'<polyline points="{pts}" fill="none" stroke="{st["stroke"]}" stroke-width="{st["width"]}" '
           'stroke-linejoin="round" stroke-linecap="round"/>')
-    for s, st in zip(series, SERIES_STYLE):  # tags last, so no curve covers them
-        ty = Y(s["I"])
+    for s, st, ty in zip(series, SERIES_STYLE, spread([Y(s["I"]) for s in series])):  # last, so no curve covers them
         a(f'<rect x="{x1 - 146}" y="{ty - 12:.1f}" width="138" height="22" rx="3" fill="#f6ecd6" '
           f'stroke="{st["stroke"]}" stroke-opacity=".6"/>'
           f'<text x="{x1 - 77}" y="{ty + 4.5:.1f}" text-anchor="middle" {mono} font-size="13" font-weight="700" '

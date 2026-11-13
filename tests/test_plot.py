@@ -35,6 +35,11 @@ def test_time_step_keeps_at_most_10_major_ticks():
     assert [plot.time_step(d) for d in (45, 180, 600, 3600)] == [5, 30, 60, 600]
 
 
+def test_spread_separates_close_tags_and_keeps_their_order():
+    assert plot.spread([100, 140]) == [100, 140]
+    assert plot.spread([210, 200]) == [218, 192]
+
+
 def test_curve_drops_the_unfilled_window_and_caps_the_points():
     frames = [(i / 10, -20.0) for i in range(1, 100001)]
     t, s = plot.curve(frames)
