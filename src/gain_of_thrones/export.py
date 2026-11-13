@@ -1,7 +1,8 @@
 """Export renders with each source file's tags and cover: MP3 320k or AAC 256k (lossy), or 24-bit FLAC, ALAC or
 WAV (lossless: the rendered samples unchanged). ReplayGain tags are dropped because the levels changed. Lossy
 formats get one gain for all files of a run (so export an album in one run), lowered until every decoded file
-measures <= -2 dBTP (encoders overshoot, so this is measured after encoding, not predicted)."""
+measures <= -2 dBTP (encoders overshoot, so this is measured after encoding, not predicted), then raised again
+as far as a bisection finds still passing."""
 from pathlib import Path
 
 import soundfile as sf
@@ -19,6 +20,22 @@ FORMATS = {
     "wav": ("wav", False, ["-c:a", "pcm_s24le"]),
 }
 NO_COVER = {"wav": "WAV can't hold cover art"}  # ffmpeg refuses an attached picture there
+MAX_ROUNDS = 9
+
+
+def next_gain(tries, ceiling=LOSSY_CEILING, tol=0.05):
+    """Next gain to encode at, from (gain dB, decoded true peak dBTP) tries, or None when done.
+    Peaks don't fall in step with gain (AAC: lower gain once gave a higher peak), so this bisects rather than predicts."""
+    passed = [g for g, tp in tries if tp <= ceiling]
+    if not passed:
+        g, tp = tries[-1]
+        return round(g - (tp - ceiling) - 0.05, 2)
+    best = max(passed)
+    above = [g for g, tp in tries if tp > ceiling and g > best]
+    if not above or min(above) - best <= tol:
+        return None
+    mid = round((best + min(above)) / 2, 2)
+    return None if mid in {g for g, _ in tries} else mid
 
 
 def pair(renders, source_dir):
@@ -97,19 +114,27 @@ def run(renders, source_dir, fmt, out_dir):
     gain = 0.0
     if lossy:
         gain = min(0.0, LOSSY_CEILING - max(true_peak(sf.read(r)[0]) for r in pairs.values()))
-    dropped = set()
-    for _ in range(6):
+    dropped, tries = set(), []
+
+    def encode_all(g):
         for s, r in pairs.items():
-            dropped |= set(encode(r, s, outs[s], fmt, gain))
-        if not lossy:
-            break
-        worst = max(true_peak(io.decode(o)[0]) for o in outs.values())
-        print(f"  {fmt.upper()} gain {gain:+.2f} dB -> loudest decoded true peak {worst:.2f} dBTP")
-        if worst <= LOSSY_CEILING:
-            break
-        gain -= worst - LOSSY_CEILING + 0.05
-    else:
-        raise SystemExit(f"{fmt.upper()} files still over {LOSSY_CEILING} dBTP after 6 tries")
+            dropped.update(encode(r, s, outs[s], fmt, g))
+        if lossy:
+            worst = max(true_peak(io.decode(o)[0]) for o in outs.values())
+            print(f"  {fmt.upper()} gain {g:+.2f} dB -> loudest decoded true peak {worst:.2f} dBTP")
+            tries.append((g, worst))
+
+    encode_all(gain)
+    while lossy and len(tries) < MAX_ROUNDS and (nxt := next_gain(tries)) is not None:
+        encode_all(gain := nxt)
+    if lossy:
+        passed = [g for g, tp in tries if tp <= LOSSY_CEILING]
+        if not passed:
+            raise SystemExit(f"{fmt.upper()} files still over {LOSSY_CEILING} dBTP after {len(tries)} tries")
+        if gain != max(passed):
+            encode_all(gain := max(passed))  # the last try was not the best one
+            if tries[-1][1] > LOSSY_CEILING:
+                raise SystemExit(f"{fmt.upper()} re-encode at {gain:+.2f} dB measured over {LOSSY_CEILING} dBTP")
     print(f"exported {len(outs)} files to {out_dir} (uniform gain {gain:+.2f} dB; "
           f"dropped tags: {', '.join(sorted(dropped)) or 'none'})")
     for s, o in outs.items():
