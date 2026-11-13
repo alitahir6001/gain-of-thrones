@@ -86,6 +86,10 @@ Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz att
 
 The person sees the song name (the reference's title tag, else its file name), "Original (reference)" plus shuffled blind slots A, B, C. They pick by ear, then press **Reveal the files** and tell you which slot won and what it was. The page decodes every file into browser memory (about 110 MB per 5-minute track), so keep a round to six versions or fewer.
 
+## got plot
+
+`got plot --ref ORIGINAL REMASTER -o FILE.svg`: draws the short-term loudness (3 s window, ffmpeg ebur128) of both files over time as a self-contained SVG, with each file's integrated loudness, true peak and LRA, and the remaster's change in loudness and LRA. Prints the same numbers. Use it to show the person what the remaster did, or for the README.
+
 ## got album
 
 `got album <src_dir> --target LUFS [--preset NAME|PATH] [--work DIR] [--shifts N] [--device D]`: measures every track's original loudness and applies one shift to all of them, so the loudest track lands at `--target` and the CD's song-to-song levels survive (targets rounded to 0.1 LU). Writes `targets.tsv`, then splits and masters each track into `renders/album/`. Resumable: existing stems and renders are skipped. Hours for an album: run it in the background.
