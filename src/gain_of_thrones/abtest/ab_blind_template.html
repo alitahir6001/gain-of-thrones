@@ -59,27 +59,31 @@ h2 { display: inline-block; font: 700 11px/1 var(--mono); text-transform: upperc
   box-shadow: inset 0 1px 0 rgba(255, 250, 230, .6), 0 1px 2px rgba(0, 0, 0, .6); text-shadow: 0 1px 0 rgba(255, 240, 200, .5); }
 .note { color: var(--muted); font-size: 14px; margin: 16px 0 0; }
 
-/* Buttons: chunky console keys */
+/* Buttons: chunky wooden keys; dark walnut off, lit rosewood on */
 button { font: inherit; color: var(--text); border: 1px solid #000; border-radius: 8px; padding: 9px 14px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; position: relative;
-  background: linear-gradient(180deg, #43352a, #2a2019 55%, #211913);
-  box-shadow: inset 0 1px 0 rgba(255, 230, 190, .16), 0 3px 0 #0a0705, 0 5px 10px rgba(0, 0, 0, .45);
+  background: linear-gradient(180deg, rgba(255, 220, 170, .1), transparent 40%), var(--grain) 0 0 / 320px,
+    linear-gradient(180deg, #4a2c18, #36200f 55%, #2a170a);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 190, .16), 0 3px 0 #0a0503, 0 5px 10px rgba(0, 0, 0, .45);
   transition: background .12s, box-shadow .12s, transform .06s, color .12s; -webkit-tap-highlight-color: transparent; }
-button:hover:not(:disabled) { background: linear-gradient(180deg, #503f32, #31251d 55%, #261d16); }
+button:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255, 220, 170, .16), transparent 40%), var(--grain) 0 0 / 320px,
+  linear-gradient(180deg, #5a3620, #422714 55%, #321c0d); }
 button:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 230, 190, .1), 0 1px 0 #0a0705, 0 2px 4px rgba(0, 0, 0, .45); }
 button:focus-visible, .track:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 button:disabled { opacity: .4; cursor: default; }
 button svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
-button.on, button.primary { color: var(--amber-ink); border-color: #5a2c06;
-  background: linear-gradient(180deg, #ffd88a, var(--amber) 45%, var(--amber-lo));
-  box-shadow: inset 0 1px 0 rgba(255, 250, 220, .7), 0 3px 0 #4a2304, 0 0 22px var(--glow), 0 5px 10px rgba(0, 0, 0, .45); }
-button.on:hover:not(:disabled), button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #ffe3a6, #ffc163 45%, #f0922f); }
+button.on, button.primary { color: #fff0d6; border-color: #2a0d04; text-shadow: 0 1px 0 rgba(0, 0, 0, .5);
+  background: linear-gradient(180deg, rgba(255, 200, 140, .22), transparent 45%), var(--grain) 0 0 / 320px,
+    linear-gradient(180deg, #9a4a24, #7a3417 55%, #5e240e);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 180, .35), 0 3px 0 #2a0d04, 0 0 18px rgba(230, 120, 60, .35), 0 5px 10px rgba(0, 0, 0, .45); }
+button.on:hover:not(:disabled), button.primary:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255, 200, 140, .28), transparent 45%),
+  var(--grain) 0 0 / 320px, linear-gradient(180deg, #a85430, #883c1d 55%, #692a12); }
 #bStop svg { fill: #e0705c; }
 
 /* Version keys with an LED */
 .versions { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
 .ver { flex-direction: column; align-items: flex-start; gap: 4px; padding: 16px 16px 14px; min-height: 92px; text-align: left; }
-.ver .name { font: 600 28px/1 var(--serif); letter-spacing: .01em; }
+.ver .name { font: 600 24px/1 var(--serif); letter-spacing: .01em; }
 .ver .hint { font: 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .ver .led { position: absolute; top: 12px; right: 12px; width: 9px; height: 9px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #6b4320, #3a1f0a); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .7); }
@@ -115,23 +119,35 @@ button.on:hover:not(:disabled), button.primary:hover:not(:disabled) { background
 .loopinfo, .vol { font: 13px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--amber); min-width: 96px; }
 .vol { min-width: 42px; }
 
-/* Volume: a horizontal fader */
-input[type=range] { -webkit-appearance: none; appearance: none; width: 150px; height: 30px; background: transparent; cursor: pointer; }
-input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--groove); box-shadow: inset 0 2px 3px #000, 0 1px 0 rgba(255, 230, 190, .1); }
-input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--groove); box-shadow: inset 0 2px 3px #000; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 26px; margin-top: -10px; border-radius: 3px; border: 1px solid #120c08;
-  background: linear-gradient(90deg, #6f6150, #d8ccb6 30%, #f2ebdc 50%, #b3a48b 70%, #5d5142); box-shadow: 0 3px 6px rgba(0, 0, 0, .6); }
-input[type=range]::-moz-range-thumb { width: 14px; height: 24px; border-radius: 3px; border: 1px solid #120c08;
-  background: linear-gradient(90deg, #6f6150, #d8ccb6 30%, #f2ebdc 50%, #b3a48b 70%, #5d5142); box-shadow: 0 3px 6px rgba(0, 0, 0, .6); }
+/* Volume: an old radio tuning dial, backlit glass with a red needle */
+.dial { position: relative; width: 200px; height: 46px; padding: 0 12px; border-radius: 7px; overflow: hidden;
+  background: radial-gradient(ellipse 80% 120% at 50% 100%, #ffe3a8, #f1cf8c 55%, #c9974f);
+  border: 4px solid #2a150a; box-shadow: inset 0 2px 6px rgba(60, 25, 5, .6), 0 0 0 1px #5a3418, 0 0 16px rgba(255, 170, 70, .25); }
+.dial::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent 40%); }
+.dial-face { position: absolute; inset: 0 12px; pointer-events: none; --tick: #5a3214;
+  background: repeating-linear-gradient(90deg, var(--tick) 0 1.5px, transparent 1.5px 20%) 0 100% / 100% 14px no-repeat,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 1.5px 14px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 5%) 0 100% / 100% 7px no-repeat; }
+.dial-face span { position: absolute; top: 5px; transform: translateX(-50%); font: 700 10px/1 var(--serif); color: #4a2810; }
+input[type=range] { position: relative; -webkit-appearance: none; appearance: none; width: 100%; height: 100%; margin: 0;
+  background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+input[type=range]::-moz-range-track { height: 100%; background: transparent; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 3px; height: 38px; border: 0; border-radius: 1px;
+  background: #c2271b; box-shadow: 0 0 4px rgba(194, 39, 27, .7), 1px 0 2px rgba(0, 0, 0, .4); }
+input[type=range]::-moz-range-thumb { width: 3px; height: 38px; border: 0; border-radius: 1px;
+  background: #c2271b; box-shadow: 0 0 4px rgba(194, 39, 27, .7), 1px 0 2px rgba(0, 0, 0, .4); }
 
-/* Shortcuts: ivory keycaps */
+/* Shortcuts: wooden keycaps */
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 20px; margin: 0; }
 .keys div { display: flex; align-items: center; gap: 12px; }
 .keys dt { display: flex; gap: 4px; min-width: 70px; color: var(--muted); }
 .keys dd { margin: 0; color: var(--muted); font-size: 14px; }
-kbd { font: 700 12px/1 var(--mono); color: #2b1d10; border-radius: 5px; padding: 5px 7px; min-width: 26px; text-align: center;
-  background: linear-gradient(180deg, #fbf3e2, #e2d3b4); border: 1px solid #7d6748; border-bottom-width: 3px;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, .45); }
+kbd { font: 700 12px/1 var(--mono); color: #f3e2c4; border-radius: 5px; padding: 5px 7px; min-width: 26px; text-align: center;
+  background: linear-gradient(180deg, rgba(255, 220, 170, .14), transparent 50%), var(--grain) 0 0 / 240px, linear-gradient(180deg, #6a3a1c, #4a2510);
+  border: 1px solid #1a0b04; border-bottom: 3px solid #1a0b04; text-shadow: 0 1px 0 #000;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 170, .2), 0 2px 3px rgba(0, 0, 0, .45); }
 
 /* Reveal: a cream tape-box log */
 #reveal:not(:empty) { margin-top: 16px; padding: 6px 14px 10px; border-radius: 4px; color: #2b1d10; transform: rotate(-.3deg);
@@ -197,7 +213,10 @@ td.file { word-break: break-word; }
       </div>
       <div class="group">
         <span class="label">Volume</span>
-        <input type="range" id="vol" min="0" max="100" value="100" aria-label="Volume (same for every version)">
+        <div class="dial">
+          <div class="dial-face" aria-hidden="true"><span style="left:0">0</span><span style="left:20%">2</span><span style="left:40%">4</span><span style="left:60%">6</span><span style="left:80%">8</span><span style="left:100%">10</span></div>
+          <input type="range" id="vol" min="0" max="100" value="100" aria-label="Volume (same for every version)">
+        </div>
         <span class="vol" id="volTxt">100%</span>
       </div>
     </div>
