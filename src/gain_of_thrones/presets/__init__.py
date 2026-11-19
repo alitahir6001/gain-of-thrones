@@ -4,7 +4,8 @@ import importlib
 import importlib.util
 from pathlib import Path
 
-PRESETS = {"heavy-guitar": "gain_of_thrones.presets.heavy_guitar"}
+PRESETS = {"heavy-guitar": "gain_of_thrones.presets.heavy_guitar",
+           "hip-hop": "gain_of_thrones.presets.hip_hop"}
 
 
 def load(name):
