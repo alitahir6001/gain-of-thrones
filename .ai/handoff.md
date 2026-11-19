@@ -1,23 +1,30 @@
 # Handoff — live state snapshot
 
 ## Last updated
-2026-11-10, session 3 of `.ai/`: closed the five gaps the first real remaster session found. Merged to `main` as PR #2 (nine commits, merge commit `90175db`).
+2026-11-14, session 4 of `.ai/`: housekeeping, ADR alternatives, torchaudio dropped, lossy gain bisection, maintainer regression, music library tidy, and the whole Freaks EP remastered with v9. A parallel session added `got plot` and README polish.
 
 ## Current state
-`main` is at `90175db`, with session 3's work merged (PR #2), and this checkout is on `main`. The repo has no CI; `uv run pytest` passes 30 locally. `got export` now takes render files or folders and a required `--format` (mp3, aac, flac, alac, wav). It prints a `carried:` line per file, and the skill asks the person which formats they want. `got analyze` adds `--blocks` and, with `--stems`, a snare line. `dsp.crack_lift` is an opt-in drum stage (ADR 0016), and heavy-guitar's default output stays byte-identical. The Cattle Mutilation remaster is final: `work/Freaks [EP]/presets/v9.py` at -10 LUFS; `~/Music/Rigor Mortis/Freaks [EP] (remaster)/` holds its FLAC and MP3 (rips moved to `~/Music/Rigor Mortis/Freaks [EP]/` on 2026-11-12).
+`main` is pushed and clean; `uv run pytest` passes 40 (no CI). The Freaks EP is done: all six tracks in `work/Freaks [EP]/renders/album/` (v9, +1.07 LU, except 02 at its approved -10.0), exported as MP3 (one gain -1.16 dB, all <= -2.05 dBTP, 14/14 tags, cover kept) and copied to `~/Music/Rigor Mortis/Freaks [EP] (remaster)/`, which also holds 02's v9 FLAC. The full log is `work/Freaks [EP]/notes.md` (session 4 section).
 
 ## Active task
-None. Session 3 closed the five gaps from the first remaster session: export formats, single-track export, "?-bit", snare and solo rows, and `crack_lift`. What changed and the measurements are in `.ai/history.md` and PR #2. The next task is the user's pick from the open threads below.
+None. Session 4's list is finished:
+1. [x] Merged branches deleted; `gain-of-thrones.old` and three Music-app duplicate MP3s moved to the Trash; two stale test sessions archived (user)
+2. [x] ADR 0009/0010/0014/0015 alternatives filled; 0010 and 0015 marked as reconstructed on 2026-11-10 (agent)
+3. [x] torchaudio removed: demucs 4.1.0 needs it only for training; a full split still works (agent)
+4. [x] `export.next_gain` bisects the lossy gain back up: v9 AAC -2.32 -> -2.06 dBTP (+0.17 dB), MP3 +0.08 dB, at up to 9 encodes (agent)
+5. [x] Maintainer regression on 03 with a fresh split: every master number matches the prototype; residual -21.7 vs -21.2 (stems differ) (agent)
+6. [x] `~/Music` organized as Artist/Album; rips now at `~/Music/Rigor Mortis/Freaks [EP]/` (agent, user OK'd)
+7. [x] EP remaster: 03 blind A/B picked -10.6 over -9.6; album at +1.0; 02 blind A/B picked -10.0 over the album's -11.0; MP3 only (user picked) (both)
 
 ## Open threads
-- AAC's decoded true peak doesn't fall in step with its gain. On v9, -1.07 dB gave -1.90 dBTP and -1.22 dB gave -1.85. The loop took 4 encodes and landed at -2.32 dBTP, 0.32 dB under the ceiling (-11.5 LUFS vs the MP3's -11.1). That is within the rule; a search for the highest passing gain would recover it. Not built.
-- Not run: the CLAUDE.md maintainer regression on 03 The Haunted (no stems here; about 19 min to split). heavy-guitar's default was verified byte-identical on Cattle Mutilation's stems instead.
-- Housekeeping from session 2: `~/Desktop/projects/gain-of-thrones.old` can be deleted once the user is satisfied. The two test sessions and VS Code still point at the old `/private/tmp` path. Local branch `docs/adr-backfill` is merged.
-- ADRs 0009, 0010, 0014 and 0015 say "(alternatives not recorded)"; fill them only if the user remembers real alternatives.
-- From the build: drop the `torchaudio<2.9` pin? demucs 4.1.0 needs torchaudio only for training. Harness repo: the `write-adr` change is uncommitted; the user commits there.
+- 05 Worms of the Earth costs the most: limiter GR max 5.5 dB, active 77% at -9.3 LUFS (04: 4.1/28%, 06: 4.4/50%). Only 02 and 03 were A/B'd; offer a blind A/B of 05 at a lower target.
+- Leftovers on disk: the prototype's v4 renders and MP3 set (584 MB) in `~/Library/Application Support/Claude/scratch-workspaces/.../scratch-2026-11-05-f68799/output/`; the Trash still holds `gain-of-thrones.old`. The user's call to delete. Only 02 has a FLAC in the remaster folder.
+- `got abtest` started from Bash in the background was killed at turn end twice (exit 144). Run it in the Terminal panel (`run_in_terminal`); worth a line in the skill or CLAUDE.md if the user agrees.
+- CLAUDE.md's maintainer regression quotes residual -21.2 dB; a fresh split gives -21.7 (Demucs `--shifts` is random). Worth noting there, on the user's OK.
+- Next genre: hip hop. Follow `docs/adding-a-genre.md` (research report + notes, draft preset, register, measure, blind A/B).
 
 ## Next recommended step
-Ask the user which open thread to take next. On their OK, delete the merged branches `docs/adr-backfill` and `feat/session-1-gaps`, local and remote.
+Ask the user: hip hop research first, or the 05 Worms of the Earth A/B.
 
 ## Out of scope
-The other five Freaks EP tracks (1367 s of audio, about 1.4 hours to split), unless the user asks. Opus export (the user chose WAV, ALAC and AAC). Merging TRACKTOTAL into MP4's track field: it is reported as not carried instead.
+Opus export; TRACKTOTAL merged into MP4's track field; re-splitting for byte-identity with the prototype (its stems are gone).
