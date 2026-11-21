@@ -159,6 +159,21 @@ th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacin
 td b { font: 700 16px/1 var(--serif); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.file { word-break: break-word; }
+tr.won td { background: rgba(163, 57, 42, .16); }
+td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 6px; }
+
+/* Pick: one per slot, final once pressed */
+.slot { display: grid; gap: 8px; }
+.slot .pickbtn { width: 100%; }
+.slot.won .pickbtn { color: #fff0d6; background: linear-gradient(180deg, #a3392a, #6e1f14); opacity: 1; }
+.picked { font: 600 13px/1.4 var(--mono); color: var(--amber); margin: 16px 0 0; }
+
+/* Chooser: which renders go into the round */
+.choices { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.choices label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  font: 13px/1.4 var(--mono); word-break: break-word; background: var(--groove); box-shadow: inset 0 2px 4px #000; }
+.choices input { accent-color: var(--amber-lo); width: 16px; height: 16px; flex: none; }
+[hidden] { display: none !important; }
 
 @media (max-width: 560px) {
   h1 { font-size: 24px; }
@@ -182,13 +197,21 @@ td.file { word-break: break-word; }
     <span class="pill" id="pill">Loading</span>
   </header>
 
-  <section class="card" aria-labelledby="h-versions">
-    <div class="card-head"><h2 id="h-versions">Versions</h2><span class="now" id="now"></span></div>
-    <div class="versions" id="versions"></div>
-    <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled on every page load.</p>
+  <section class="card" aria-labelledby="h-choose" id="chooser" hidden>
+    <div class="card-head"><h2 id="h-choose">Choose renders</h2><span class="now" id="chosen"></span></div>
+    <ul class="choices" id="choices"></ul>
+    <p class="note">Tick the renders to compare against the original. Once the round starts they are shuffled into blind slots, and the names stay hidden until you reveal them.</p>
+    <p style="margin:12px 0 0"><button id="bStart" class="primary" disabled>Start the round</button></p>
   </section>
 
-  <section class="card" aria-labelledby="h-transport">
+  <section class="card round" aria-labelledby="h-versions">
+    <div class="card-head"><h2 id="h-versions">Versions</h2><span class="now" id="now"></span></div>
+    <div class="versions" id="versions"></div>
+    <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled once per round. <b>Pick this one</b> records your favorite and is final for the round.</p>
+    <p class="picked" id="picked"></p>
+  </section>
+
+  <section class="card round" aria-labelledby="h-transport">
     <div class="card-head"><h2 id="h-transport">Playback</h2></div>
     <div class="timeline">
       <div class="track" id="track" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
@@ -222,11 +245,11 @@ td.file { word-break: break-word; }
     </div>
   </section>
 
-  <section class="card" aria-labelledby="h-keys">
+  <section class="card round" aria-labelledby="h-keys">
     <div class="card-head"><h2 id="h-keys">Keyboard shortcuts</h2></div>
     <dl class="keys">
       <div><dt><kbd>Space</kbd></dt><dd>Play / pause</dd></div>
-      <div><dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Pick a version</dd></div>
+      <div><dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Switch to a version</dd></div>
       <div><dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Previous / next version</dd></div>
       <div><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Back / forward 10 s</dd></div>
       <div><dt><kbd>S</kbd></dt><dd>Stop, back to the start</dd></div>
@@ -235,78 +258,129 @@ td.file { word-break: break-word; }
     </dl>
   </section>
 
-  <section class="card" aria-labelledby="h-reveal">
+  <section class="card round" aria-labelledby="h-reveal">
     <div class="card-head"><h2 id="h-reveal">Reveal</h2></div>
-    <p class="note" style="margin-top:0">Pick your favorite by ear first, then reveal which file is which.</p>
-    <p style="margin:12px 0 0"><button id="bReveal" disabled>Reveal the files</button></p>
+    <p class="note" style="margin-top:0">Pick your favorite by ear first, then reveal which file is which. After the reveal, no pick is taken for this round.</p>
+    <p style="margin:12px 0 0"><button id="bReveal" disabled>Reveal the files</button> <button id="bNew" hidden>New round</button></p>
     <div id="reveal"></div>
   </section>
 </main>
 <script>
-// Filled by got abtest: [{url, label, lufs, gain_db, ref}]; gain_db is always <= 0 (level-matched down, never up).
+// Filled by got abtest: {song, chooser (true: renders are chosen in the page), renders: [names, before a round only],
+// max, round: null or {id, picked, revealed, slots: [{name, url, lufs, gain_db, file (only once revealed)}]}}. The server shuffled the slots; slot 0 is the
+// reference. gain_db is always <= 0 (level-matched down, never up).
 // Must be served over http (fetch fails on file://). Don't name an element "status": it clashes with window.status.
-const VERSIONS = __VERSIONS__;
-const SONG = __SONG__;  // the reference's title tag, else its file name
+const STATE = __STATE__;
+const R = STATE.round;
+const SLOTS = R ? R.slots : [];
 const $ = id => document.getElementById(id);
-$("song").textContent = SONG;
-document.title = `${SONG} · Blind A/B`;
+$("song").textContent = STATE.song;
+document.title = `${STATE.song} · Blind A/B`;
 const ctx = new AudioContext();
 const master = ctx.createGain(); master.connect(ctx.destination);
 let bufs = [], gains = [], srcs = [], cur = 0, playing = false, started = false, t0 = 0, off = 0, dur = 0, dragging = false;
 let loopA = null, loopB = null, looping = false;
 
-// Fisher-Yates; the reference stays first and labelled, the rest are blind.
-const order = VERSIONS.map((_, i) => i);
-for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-const ref = Math.max(0, VERSIONS.findIndex(v => v.ref));
-const slots = [ref, ...order.filter(i => i !== ref)];
-const names = slots.map((_, k) => k === 0 ? "Original" : String.fromCharCode(64 + k));
-const quietest = Math.min(...VERSIONS.map(v => v.lufs));
-$("sub").textContent = `${VERSIONS.length} versions, level-matched to ${quietest.toFixed(1)} LUFS`;
-
 const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-const level = vi => Math.pow(10, VERSIONS[vi].gain_db / 20);
+const level = k => Math.pow(10, SLOTS[k].gain_db / 20);
 function setPill(text, err) { $("pill").textContent = text; $("pill").className = "pill" + (err ? " err" : ""); }
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${r.status}`);
+  return j;
+}
+function fail(e) { setPill("Refused", true); $("sub").textContent = e.message; }
 
-let loaded = 0;
-setPill(`Loading 0 of ${VERSIONS.length}`);
-Promise.all(VERSIONS.map(v => fetch(v.url)
-    .then(r => { if (!r.ok) throw new Error(`${r.status} for ${v.label}`); return r.arrayBuffer(); })
-    .then(b => ctx.decodeAudioData(b))
-    .then(buf => { setPill(`Loading ${++loaded} of ${VERSIONS.length}`); return buf; })))
-  .then(b => {
-    bufs = b; dur = Math.min(...b.map(x => x.duration));
-    $("tdur").textContent = fmt(dur); $("track").setAttribute("aria-valuemax", Math.floor(dur));
-    slots.forEach((vi, k) => {
-      const g = ctx.createGain(); g.gain.value = 0; g.connect(master); gains[vi] = g;
-      const el = document.createElement("button");
-      el.className = "ver"; el.id = "v" + k; el.onclick = () => pick(k);
-      el.innerHTML = `<span class="led"></span><span class="name">${names[k]}</span><span class="hint">${k === 0 ? "reference · " : ""}key ${k + 1 <= 9 ? k + 1 : "–"}</span>`;
-      $("versions").appendChild(el);
-    });
-    $("bReveal").disabled = false;
-    pick(0); setPill("Ready");
-  })
-  .catch(e => { setPill("Load failed", true); $("sub").textContent = "Could not load the audio: " + e.message; });
+// Chooser: no round yet, so the person ticks which renders go in. Names are fine here; the slots aren't dealt yet.
+if (!R) {
+  document.querySelectorAll(".round").forEach(el => el.hidden = true);
+  $("chooser").hidden = false;
+  $("sub").textContent = `${STATE.renders.length} renders of this track; choose up to ${STATE.max}`;
+  STATE.renders.forEach((name, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<label><input type="checkbox" value="${i}"><span></span></label>`;
+    li.querySelector("span").textContent = name;
+    $("choices").appendChild(li);
+  });
+  const ticked = () => [...$("choices").querySelectorAll("input:checked")].map(x => +x.value);
+  $("choices").onchange = () => {
+    const n = ticked().length;
+    $("chosen").textContent = `${n} of ${STATE.max} max`;
+    $("bStart").disabled = n < 1 || n > STATE.max;
+  };
+  $("bStart").onclick = () => {
+    $("bStart").disabled = true; setPill("Measuring");
+    post("/round", { renders: ticked() }).then(() => location.reload()).catch(e => { fail(e); $("bStart").disabled = false; });
+  };
+  setPill("Choose");
+}
 
-function pick(k) {
-  if (!bufs.length || k < 0 || k >= slots.length) return;
+if (R) {
+  const quietest = Math.min(...SLOTS.map(v => v.lufs));
+  $("sub").textContent = `${SLOTS.length} versions, level-matched to ${quietest.toFixed(1)} LUFS`;
+  let loaded = 0;
+  setPill(`Loading 0 of ${SLOTS.length}`);
+  Promise.all(SLOTS.map(v => fetch(v.url)
+      .then(r => { if (!r.ok) throw new Error(`${r.status} for ${v.name}`); return r.arrayBuffer(); })
+      .then(b => ctx.decodeAudioData(b))
+      .then(buf => { setPill(`Loading ${++loaded} of ${SLOTS.length}`); return buf; })))
+    .then(b => {
+      bufs = b; dur = Math.min(...b.map(x => x.duration));
+      $("tdur").textContent = fmt(dur); $("track").setAttribute("aria-valuemax", Math.floor(dur));
+      SLOTS.forEach((v, k) => {
+        const g = ctx.createGain(); g.gain.value = 0; g.connect(master); gains[k] = g;
+        const box = document.createElement("div"); box.className = "slot"; box.id = "s" + k;
+        const el = document.createElement("button");
+        el.className = "ver"; el.id = "v" + k; el.onclick = () => listen(k);
+        el.innerHTML = `<span class="led"></span><span class="name">${v.name}</span><span class="hint">${k === 0 ? "reference · " : ""}key ${k + 1 <= 9 ? k + 1 : "–"}</span>`;
+        const pb = document.createElement("button");
+        pb.className = "small pickbtn"; pb.id = "p" + k; pb.textContent = "Pick this one"; pb.onclick = () => choosePick(k);
+        box.append(el, pb); $("versions").appendChild(box);
+      });
+      $("bReveal").disabled = R.revealed;
+      showPick(); if (R.revealed) showReveal();
+      listen(0); setPill("Ready");
+    })
+    .catch(e => { setPill("Load failed", true); $("sub").textContent = "Could not load the audio: " + e.message; });
+}
+
+function listen(k) {
+  if (!bufs.length || k < 0 || k >= SLOTS.length) return;
   cur = k;
-  slots.forEach((vi, j) => {
-    gains[vi].gain.setTargetAtTime(j === k ? level(vi) : 0, ctx.currentTime, 0.005);
+  SLOTS.forEach((_, j) => {
+    gains[j].gain.setTargetAtTime(j === k ? level(j) : 0, ctx.currentTime, 0.005);
     $("v" + j).classList.toggle("on", j === k);
   });
-  $("now").innerHTML = `Now hearing <b>${names[k]}</b>`;
+  $("now").innerHTML = `Now hearing <b>${SLOTS[k].name}</b>`;
+}
+
+// The pick goes to the server first; it refuses a second pick and any pick after Reveal.
+function choosePick(k) {
+  if (R.picked !== null || R.revealed) return;
+  if (!confirm(`Pick ${SLOTS[k].name}? Your pick is final for this round.`)) return;
+  post("/pick", { slot: k }).then(s => { R.picked = s.round.picked; showPick(); }).catch(fail);
+}
+function showPick() {
+  const done = R.picked !== null || R.revealed;
+  SLOTS.forEach((_, j) => {
+    $("p" + j).disabled = done;
+    $("s" + j).classList.toggle("won", j === R.picked);
+    if (j === R.picked) $("p" + j).textContent = "Picked";
+  });
+  $("picked").textContent = R.picked !== null ? `Your pick: ${SLOTS[R.picked].name}. It is recorded; reveal when you're ready.`
+    : R.revealed ? "Revealed without a pick." : "";
+  $("bNew").hidden = !(STATE.chooser && R.revealed);
 }
 
 function start(at) {
   stop();
   if (looping) at = (at >= loopA && at < loopB) ? at : loopA;
   const when = ctx.currentTime + 0.05;
-  srcs = slots.map(vi => {
-    const s = ctx.createBufferSource(); s.buffer = bufs[vi];
+  srcs = SLOTS.map((_, k) => {
+    const s = ctx.createBufferSource(); s.buffer = bufs[k];
     if (looping) { s.loop = true; s.loopStart = loopA; s.loopEnd = loopB; }
-    s.connect(gains[vi]); s.start(when, at); return s;
+    s.connect(gains[k]); s.start(when, at); return s;
   });
   t0 = when - at; playing = started = true;
 }
@@ -366,12 +440,18 @@ $("bBack").onclick = () => seek(now() - 10); $("bFwd").onclick = () => seek(now(
 $("bLoop").onclick = toggleLoop; $("bLoopA").onclick = setLoopStart; $("bLoopB").onclick = setLoopEnd; $("bLoopClear").onclick = clearLoop;
 $("vol").oninput = e => { const v = +e.target.value; master.gain.setTargetAtTime((v / 100) ** 2, ctx.currentTime, 0.01); $("volTxt").textContent = v + "%"; };
 $("bReveal").onclick = () => {
-  const rows = slots.map((vi, k) => `<tr><td><b>${names[k]}</b></td><td class="file"></td>` +
-    `<td class="num">${VERSIONS[vi].lufs.toFixed(2)} LUFS</td><td class="num">${VERSIONS[vi].gain_db.toFixed(2)} dB</td></tr>`).join("");
-  $("reveal").innerHTML = `<table><thead><tr><th>Slot</th><th>File</th><th class="num">As rendered</th><th class="num">Played at</th></tr></thead><tbody>${rows}</tbody></table>`;
-  $("reveal").querySelectorAll("td.file").forEach((td, k) => td.textContent = VERSIONS[slots[k]].label);
-  $("bReveal").disabled = true;
+  if (R.picked === null && !confirm("Reveal without a pick? No pick is taken after the reveal.")) return;
+  post("/reveal").then(s => { R.revealed = true; R.slots.forEach((v, k) => v.file = s.round.slots[k].file); showPick(); showReveal(); })
+    .catch(fail);
 };
+$("bNew").onclick = () => post("/reset").then(() => location.reload()).catch(fail);
+function showReveal() {
+  const rows = SLOTS.map((v, k) => `<tr${k === R.picked ? ' class="won"' : ""}><td><b>${v.name}</b>${k === R.picked ? '<span class="star">picked</span>' : ""}</td><td class="file"></td>` +
+    `<td class="num">${v.lufs.toFixed(2)} LUFS</td><td class="num">${v.gain_db.toFixed(2)} dB</td></tr>`).join("");
+  $("reveal").innerHTML = `<table><thead><tr><th>Slot</th><th>File</th><th class="num">As rendered</th><th class="num">Played at</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("reveal").querySelectorAll("td.file").forEach((td, k) => td.textContent = SLOTS[k].file);
+  $("bReveal").disabled = true;
+}
 
 function paint(p) {
   const f = dur ? p / dur : 0;
@@ -397,11 +477,12 @@ requestAnimationFrame(frame);
 
 document.addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const k = e.key, n = slots.length;
+  if (!R) return;  // the chooser keeps normal keyboard use
+  const k = e.key, n = SLOTS.length;
   if (e.code === "Space") toggle();
-  else if (k >= "1" && k <= "9") pick(+k - 1);
-  else if (k === "ArrowUp") pick((cur - 1 + n) % n);
-  else if (k === "ArrowDown") pick((cur + 1) % n);
+  else if (k >= "1" && k <= "9") listen(+k - 1);
+  else if (k === "ArrowUp") listen((cur - 1 + n) % n);
+  else if (k === "ArrowDown") listen((cur + 1) % n);
   else if (k === "ArrowLeft") seek(now() - 10);
   else if (k === "ArrowRight") seek(now() + 10);
   else if (k === "s" || k === "S") stopToStart();
@@ -412,6 +493,6 @@ document.addEventListener("keydown", e => {
   e.preventDefault();
 });
 // A focused button would otherwise also "click" on Space.
-document.addEventListener("keyup", e => { if (e.code === "Space") e.preventDefault(); });
+document.addEventListener("keyup", e => { if (R && e.code === "Space") e.preventDefault(); });
 </script>
 </body></html>
