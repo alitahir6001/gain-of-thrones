@@ -21,3 +21,4 @@ ADRs 0001-0015 were backfilled on 2026-11-08 from the repository. Each one is da
 - [0015 - License the project GPL-3.0-or-later - accepted - 2026-11-08](0015-gpl-3-or-later-license.md)
 - [0016 - Offer crack_lift as a generic opt-in drum stage, not a preset default - accepted - 2026-11-09](0016-crack-lift-as-a-generic-opt-in-drum-stage.md)
 - [0017 - Cap the drum stem's peaks in heavy-guitar so the bus limiter stops ducking the mix - accepted - 2026-11-21](0017-cap-drum-peaks-before-the-bus-limiter.md)
+- [0018 - Record the blind A/B pick on the server, final before Reveal - accepted - 2026-11-21](0018-record-the-blind-pick-on-the-server.md)
