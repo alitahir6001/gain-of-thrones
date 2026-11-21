@@ -1,6 +1,8 @@
 import numpy as np
+import pyloudnorm as pyln
 
 from gain_of_thrones import dsp
+from gain_of_thrones.limiter import true_peak
 
 SR = 44100
 
@@ -58,3 +60,20 @@ def test_transient_lift_leaves_a_low_attack_alone():
     y, _ = dsp.transient_lift(x, SR, 3000, 8000, amount=0.5, max_db=2.0)
     body = slice(0, int(1.9 * SR))  # the array's abrupt end is a filter edge, not an attack
     assert np.abs(y[body] - x[body]).max() < 1e-5  # measured 6.4e-7, -113 dB re the tone
+
+
+def test_drum_cap_is_5_db_under_the_peak_and_at_most_10_77_over_the_mix():
+    assert dsp.drum_cap_db(-2.0, -13.5) == -7.0  # Freaks-like: peak - 5 is the lower one
+    assert abs(dsp.drum_cap_db(1.5, -15.3) - (-4.53)) < 1e-9  # Rigor Mortis-like: mix + 10.77 is the lower one
+
+
+def test_drum_peaks_caps_hits_and_leaves_the_rest():
+    t = np.arange(3 * SR) / SR
+    a = np.full(len(t), 0.05)
+    a[SR:SR + int(0.02 * SR)] = 0.8  # one 20 ms hit, 24 dB over the bed
+    y = quadrature(200, a, 3.0)
+    cap = dsp.drum_cap_db(true_peak(y), pyln.Meter(SR).integrated_loudness(y))
+    out = dsp.drum_peaks(y, {"drums": y}, SR)
+    assert true_peak(out) <= cap + 0.05
+    far = np.r_[0:SR - SR // 20, SR + SR // 10:3 * SR]  # > 50 ms from the hit; look-ahead is 5 ms
+    assert np.allclose(out[far], y[far], rtol=0, atol=1e-12)

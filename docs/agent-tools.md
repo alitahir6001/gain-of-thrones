@@ -72,6 +72,7 @@ What it prints and what to check:
 | residual | -20 to -22 dB re input | much higher: stems and input don't belong together |
 | null test (bypass) | `0.00e+00` | anything else: stems or input mismatch; stop |
 | de-esser / guitar dip | active a few % / about a third of the time | active most of the time: threshold too low for this track |
+| drum peaks capped (heavy-guitar) | GR max up to 5 dB, active 1-6% | active far more: the drum stem is mostly peaks; listen for a flat snare |
 | stem lines | original -> after chain -> balanced | balanced must equal original + `BALANCE` |
 | bus comp | about 1.5 dB loudness drop | |
 | per target | LUFS within 0.03 of target, dBTP at the ceiling | limiter GR max over 3 dB or active over 30%: the loudness costs transients |
@@ -80,6 +81,8 @@ What it prints and what to check:
 `--preset` takes a registered name (`heavy-guitar`) or a path to a preset `.py` file. To iterate, copy the preset into the work folder, change one value, and render with `--preset work/<album>/presets/v2.py --name v2`. `--name` labels the file; it defaults to the preset name.
 
 Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz attacks (snare crack and snap) by at most 2 dB and leaves the cymbal wash alone. Add `from gain_of_thrones.dsp import crack_lift` and append `crack_lift` to the copy's `"drums"` chain. It prints how often it acted. It won one blind round, on one track, with the drum compressor already off (ADR 0016).
+
+`heavy-guitar` ends its drum chain with `drum_peaks` (ADR 0017): the drum stem's peaks are capped at the lower of its true peak minus 5 dB and the raw stems' loudness plus 10.77 dB, so the bus limiter stops ducking the whole mix on each hit. A preset copy from an older session adds it with `from gain_of_thrones.dsp import drum_peaks`, as the last entry of `"drums"`.
 
 ## got abtest
 
