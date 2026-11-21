@@ -46,7 +46,7 @@ def cmd_album(a):
 
 def cmd_abtest(a):
     from . import abtest
-    abtest.serve(a.ref, a.versions, open_browser=not a.no_browser, port=a.port)
+    abtest.serve(a.ref, a.versions, a.work, open_browser=not a.no_browser, port=a.port)
 
 
 def cmd_plot(a):
@@ -98,8 +98,11 @@ def main(argv=None):
     p.set_defaults(func=cmd_album)
 
     p = sub.add_parser("abtest", help="serve a blind, level-matched A/B page on 127.0.0.1 (Ctrl-C to stop)")
-    p.add_argument("versions", nargs="+", help="renders to compare")
+    p.add_argument("versions", nargs="*",
+                   help="renders to compare (at most 6); none: the person chooses from the track's renders in the page")
     p.add_argument("--ref", required=True, help="the original, shown labelled as the reference")
+    p.add_argument("--work", help="work folder for the render list and abtest-picks.tsv "
+                                  "(default: above the first version's renders/, else ./work/<album folder name>)")
     p.add_argument("--port", type=int, default=0, help="default: a random free port")
     p.add_argument("--no-browser", action="store_true", help="print the URL without opening a browser")
     p.set_defaults(func=cmd_abtest)
