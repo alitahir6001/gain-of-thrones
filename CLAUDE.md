@@ -25,4 +25,4 @@ A remastering tool for a person and their agent: the person listens and decides,
 
 ## Maintainer regression (local only, needs the Freaks EP)
 
-`got master` on a Freaks track's stems must reproduce `freaks_ep_v4_verify.txt` from the prototype (kept outside the repo). 03 The Haunted at -10.8 LUFS: residual -21.2 dB, null 0.00e+00, -10.82 LUFS, -1.30 dBTP, limiter GR max 3.4 dB. With the prototype's own stems, the render is byte-identical to the prototype's.
+`got master` on 03 The Haunted's stems from the Freaks work folder (the prototype's own stems are gone) at -10.8 LUFS: residual -21.7 dB, null 0.00e+00, -10.81 LUFS, -1.30 dBTP, limiter GR max 2.8 dB, active 15%, drum peaks capped at -9.3 dBTP. Before the drum cap (ADR 0017) it was 3.4 dB, active 20%, matching the prototype's `freaks_ep_v4_verify.txt` (kept outside the repo); that byte-identity no longer holds.
