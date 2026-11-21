@@ -1,30 +1,29 @@
 # Handoff — live state snapshot
 
 ## Last updated
-2026-11-14, session 4 of `.ai/`: housekeeping, ADR alternatives, torchaudio dropped, lossy gain bisection, maintainer regression, music library tidy, and the whole Freaks EP remastered with v9. A parallel session added `got plot` and README polish.
+2026-11-21, session 5 of `.ai/`: the drum-peak cap went into the shipped `heavy-guitar` preset (PR #4). A side session added the in-page A/B pick and render chooser (PR #3). Hip hop research and a draft preset landed earlier the same day, from other sessions.
 
 ## Current state
-`main` is pushed and clean; `uv run pytest` passes 40 (no CI). The Freaks EP is done: all six tracks in `work/Freaks [EP]/renders/album/` (v9, +1.07 LU, except 02 at its approved -10.0), exported as MP3 (one gain -1.16 dB, all <= -2.05 dBTP, 14/14 tags, cover kept) and copied to `~/Music/Rigor Mortis/Freaks [EP] (remaster)/`, which also holds 02's v9 FLAC. The full log is `work/Freaks [EP]/notes.md` (session 4 section).
+`main` is at ecfeb53 (PR #4 merged) and `uv run pytest` passes 50 (no CI). `heavy-guitar` now ends its drum chain with `dsp.drum_peaks` (cap = min(drum TP - 5, raw stems LUFS + 10.77)), after three blind wins: Rigor Mortis 04 and 10, Freaks 05 (ADR 0017). `got abtest` records the person's pick on the server (`pick: slot X = <path>` on stdout, a row in `<work>/abtest-picks.tsv`); with no VERSION the person ticks which renders go in (ADR 0018).
 
 ## Active task
-None. Session 4's list is finished:
-1. [x] Merged branches deleted; `gain-of-thrones.old` and three Music-app duplicate MP3s moved to the Trash; two stale test sessions archived (user)
-2. [x] ADR 0009/0010/0014/0015 alternatives filled; 0010 and 0015 marked as reconstructed on 2026-11-10 (agent)
-3. [x] torchaudio removed: demucs 4.1.0 needs it only for training; a full split still works (agent)
-4. [x] `export.next_gain` bisects the lossy gain back up: v9 AAC -2.32 -> -2.06 dBTP (+0.17 dB), MP3 +0.08 dB, at up to 9 encodes (agent)
-5. [x] Maintainer regression on 03 with a fresh split: every master number matches the prototype; residual -21.7 vs -21.2 (stems differ) (agent)
-6. [x] `~/Music` organized as Artist/Album; rips now at `~/Music/Rigor Mortis/Freaks [EP]/` (agent, user OK'd)
-7. [x] EP remaster: 03 blind A/B picked -10.6 over -9.6; album at +1.0; 02 blind A/B picked -10.0 over the album's -11.0; MP3 only (user picked) (both)
+None. Session 5's list is finished:
+1. [x] Dip counter checked on Rigor Mortis 04: 38.9 / 21.2 -> 9.2 / 1.3 dips/min, same as its notes (agent)
+2. [x] Freaks v9 dips with and without the cap at the approved targets: only 05 has many (21.3 -> 9.8 >3 dB/min); "TP - 5" binds on all six, so 10.77 never acts there (agent)
+3. [x] Blind A/B on Freaks 05 (original, v9, v9+cap): v9+cap won (user)
+4. [x] Stage in `dsp.py` with rule and stage tests; preset change; ADR 0017; CLAUDE.md lesson; skill "dips" row; agent-tools entry; one commit each (agent)
+5. [x] Maintainer regression numbers updated with the user's OK: 03 at -10.8, GR max 3.4 -> 2.8 dB, active 20 -> 15%, on the work-folder stems (the prototype's stems are gone) (agent)
+6. [x] ADR 0018 for PR #3; ADR 0008's amendment paragraph now points to it (agent)
 
 ## Open threads
-- 05 Worms of the Earth costs the most: limiter GR max 5.5 dB, active 77% at -9.3 LUFS (04: 4.1/28%, 06: 4.4/50%). Only 02 and 03 were A/B'd; offer a blind A/B of 05 at a lower target.
-- Leftovers on disk: the prototype's v4 renders and MP3 set (584 MB) in `~/Library/Application Support/Claude/scratch-workspaces/.../scratch-2026-11-05-f68799/output/`; the Trash still holds `gain-of-thrones.old`. The user's call to delete. Only 02 has a FLAC in the remaster folder.
-- `got abtest` started from Bash in the background was killed at turn end twice (exit 144). Run it in the Terminal panel (`run_in_terminal`); worth a line in the skill or CLAUDE.md if the user agrees.
-- CLAUDE.md's maintainer regression quotes residual -21.2 dB; a fresh split gives -21.7 (Demucs `--shifts` is random). Worth noting there, on the user's OK.
-- Next genre: hip hop. Follow `docs/adding-a-genre.md` (research report + notes, draft preset, register, measure, blind A/B).
+- Freaks `notes.md` has no session-5 entry: a worktree hook blocked writes to the main checkout's `work/`. The text is in `~/Library/Application Support/Claude/side-session-notes/local_be3d0cd6-d693-418f-93fd-7a1e18010d77/drum-cap-freaks.md`; paste it in.
+- Freaks album renders and MP3s are v9 without the cap. Only 05 was tested blind with it; offer to re-render and export the EP (at least 05) with v9 + `drum_peaks`. Rigor Mortis's album is already v12, which the shipped preset reproduces byte for byte (04 checked).
+- Rigor Mortis: Drive and the car still have the old stock MP3s (the user replaces them; see its `notes.md`).
+- Hip hop: draft preset registered (commits 6bbe63f, cc5f4ab). Per `docs/adding-a-genre.md` it still needs measuring and a blind A/B on a real track (inferred from the commit titles; check the research notes).
+- Leftovers: local branch `backup/serene-cap-pre-split` (old two-commit history, safe to delete); the prototype's v4 renders (584 MB) in a Claude scratch workspace. The user's call.
 
 ## Next recommended step
-Ask the user: hip hop research first, or the 05 Worms of the Earth A/B.
+Ask the user: re-render the Freaks EP with the cap, or start the hip hop blind A/B.
 
 ## Out of scope
 Opus export; TRACKTOTAL merged into MP4's track field; re-splitting for byte-identity with the prototype (its stems are gone).
