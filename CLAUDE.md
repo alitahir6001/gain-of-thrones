@@ -11,6 +11,7 @@ A remastering tool for a person and their agent: the person listens and decides,
 ## Lessons (measured, not guessed)
 
 - pedalboard's `Limiter` is not a ceiling: it adds make-up gain (a -6 dB threshold put a test tone at 0 dBFS; driven to loudness it left 1529 flat-top runs on one track). Use `limiter.tp_limit`.
+- The bus limiter ducks the whole mix on drum hits (3-6 dB for 60-80 ms, heard as dips); cap the drum stem first (`dsp.drum_peaks`, ADR 0017). Dips over 3 dB per minute went from 38.9 to 9.2 on the track where it first won.
 - Never gate or expand the "other" stem; it exposes separation errors. The vocal gate in `heavy-guitar` was approved by ear.
 - Add the stem residual back at unity. A residual around -21 dB means the stems sum back, not that they are clean.
 - htdemucs_ft crashes on MPS ("Output channels > 65536 not supported"): CPU on Apple Silicon, about 3.8 s per audio second at `--shifts 2`.
