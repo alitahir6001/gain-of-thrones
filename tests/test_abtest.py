@@ -1,4 +1,15 @@
-from gain_of_thrones.abtest import match_gains, song_name
+import json
+import threading
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+import numpy as np
+import pytest
+import soundfile as sf
+
+from gain_of_thrones.abtest import (LOG_NAME, MAX_VERSIONS, Session, make_server, match_gains, song_name, track_renders,
+                                    work_folder)
 
 
 def test_song_name_prefers_title_tag_in_any_case():
@@ -17,3 +28,139 @@ def test_level_match_only_turns_down():
     assert max(g) == 0 and all(x <= 0 for x in g)
     assert g[lufs.index(min(lufs))] == 0  # the quietest plays as is
     assert len({round(l + x, 9) for l, x in zip(lufs, g)}) == 1  # all land at the same loudness
+
+
+SR = 44100
+
+
+def tone(path, db, freq=440):
+    t = np.arange(SR) / SR
+    sf.write(path, np.stack([np.sin(2 * np.pi * freq * t)] * 2, 1) * 10 ** (db / 20), SR, subtype="PCM_24")
+    return path
+
+
+@pytest.fixture
+def album(tmp_path):
+    """album/01 Tone.wav, and work/renders/ with two renders of it at different levels plus another track's."""
+    (tmp_path / "album").mkdir()
+    ren = tmp_path / "work" / "renders"
+    (ren / "album").mkdir(parents=True)
+    ref = tone(tmp_path / "album" / "01 Tone.wav", -20)
+    a = tone(ren / "01 Tone_v1_-10LUFS.wav", -12, 550)
+    b = tone(ren / "01 Tone_v2_-9LUFS.wav", -10, 660)
+    c = tone(ren / "album" / "01 Tone_heavy-guitar_-10LUFS.wav", -11, 770)
+    tone(ren / "02 Other_v1_-10LUFS.wav", -12)
+    return ref, [a, b, c], tmp_path / "work"
+
+
+@pytest.fixture
+def server():
+    srvs = []
+
+    def start(session):
+        srv = make_server(session)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        srvs.append(srv)
+        return f"http://127.0.0.1:{srv.server_port}"
+
+    yield start
+    for s in srvs:
+        s.shutdown()
+        s.server_close()
+
+
+def post(url, body=None):
+    req = urllib.request.Request(url, json.dumps(body or {}).encode(), {"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read())
+
+
+def get(url):
+    with urllib.request.urlopen(url) as r:
+        return r.read()
+
+
+def test_work_folder_and_track_renders(album):
+    ref, (a, b, c), work = album
+    assert work_folder(ref, [a]) == work.resolve()
+    assert work_folder(ref, [], "elsewhere") == Path("elsewhere")
+    assert work_folder(ref, []) == Path("work") / "album"
+    assert track_renders(work, ref) == [a, b, c]  # not 02 Other's render
+
+
+def test_page_hides_file_names_until_reveal(album, server):
+    ref, versions, work = album
+    url = server(Session(ref, versions[:2], work=work))
+    page = get(url + "/").decode()
+    assert all(v.name not in page for v in versions[:2])
+    code, s = post(url + "/reveal")
+    assert code == 200 and {x["file"] for x in s["round"]["slots"][1:]} == {v.name for v in versions[:2]}
+    assert versions[0].name in get(url + "/").decode()  # after reveal a reload shows them
+
+
+def test_pick_prints_and_logs_the_blind_file_and_is_final(album, server, capsys):
+    ref, versions, work = album
+    session = Session(ref, versions[:2], work=work)
+    url = server(session)
+    winner = session.slot_file(2)
+    assert get(url + "/audio/2") == winner.read_bytes()  # the slot plays the file that gets logged
+
+    code, s = post(url + "/pick", {"slot": 2})
+    assert code == 200 and s["round"]["picked"] == 2
+    assert f"pick: slot B = {winner}" in capsys.readouterr().out
+    header, row = (work / LOG_NAME).read_text().splitlines()
+    assert header.startswith("time\tref\twinner_slot\twinner")
+    _, logged_ref, slot, logged_winner, slots = row.split("\t")
+    assert (logged_ref, slot, logged_winner) == (str(ref.resolve()), "B", str(winner))
+    for k, name in enumerate(["Original", "A", "B"]):
+        assert f"{name} {session.round['gains'][session.round['order'][k]]:+.2f} {session.slot_file(k)}" in slots
+    assert "Original +0.00" in slots  # the -20 dB reference is the quietest, so it plays as is
+
+    code, s = post(url + "/pick", {"slot": 1})
+    assert code == 409 and "already picked" in s["error"]
+    assert len((work / LOG_NAME).read_text().splitlines()) == 2
+
+
+def test_pick_after_reveal_is_refused(album, server):
+    ref, versions, work = album
+    url = server(Session(ref, versions[:2], work=work))
+    assert post(url + "/reveal")[0] == 200
+    code, s = post(url + "/pick", {"slot": 1})
+    assert code == 409 and "revealed" in s["error"]
+    assert not (work / LOG_NAME).exists()
+
+
+def test_bad_slot_is_refused(album, server):
+    ref, versions, work = album
+    url = server(Session(ref, versions[:1], work=work))
+    assert post(url + "/pick", {"slot": 5})[0] == 400
+    assert post(url + "/pick", {"slot": "A"})[0] == 400
+    assert post(url + "/pick", {"slot": 1})[0] == 200  # a refused pick doesn't use up the round
+
+
+def test_chooser_starts_a_blind_round_of_the_chosen_renders(album, server):
+    ref, versions, work = album
+    session = Session(ref, candidates=track_renders(work, ref), work=work)
+    url = server(session)
+    assert all(v.name in get(url + "/").decode() for v in versions)  # names are fine before the round
+    assert post(url + "/pick", {"slot": 1})[0] == 409  # no round yet
+    assert post(url + "/round", {"renders": list(range(MAX_VERSIONS + 1))})[0] == 400
+    assert post(url + "/round", {"renders": [0, 0]})[0] == 400
+    code, s = post(url + "/round", {"renders": [0, 2]})
+    assert code == 200 and len(s["round"]["slots"]) == 3
+    assert {session.slot_file(k) for k in (1, 2)} == {versions[0], versions[2]}
+    page = get(url + "/").decode()
+    assert '"round": {' in page and all(v.name not in page for v in versions)  # nor the candidate list
+    assert max(x["gain_db"] for x in s["round"]["slots"]) == 0  # level matching only turns down
+    post(url + "/reveal")
+    assert post(url + "/reset")[0] == 200 and session.round is None
+
+
+def test_fixed_round_refuses_the_chooser(album, server):
+    ref, versions, work = album
+    url = server(Session(ref, versions[:1], work=work))
+    assert post(url + "/round", {"renders": [0]})[0] == 409
+    assert post(url + "/reset")[0] == 409

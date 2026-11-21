@@ -12,6 +12,7 @@ work/<album>/
   renders/album/                           got album
   export/<format>/                         got export
   targets.tsv                              got album
+  abtest-picks.tsv                         got abtest (one row per blind pick)
 ```
 
 Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 45-minute album).
@@ -85,9 +86,17 @@ Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz att
 
 ## got abtest
 
-`got abtest --ref ORIGINAL VERSION... [--port N] [--no-browser]`: measures each file's loudness, turns every file down to the quietest one (never up), and serves a blind A/B page on `127.0.0.1` (random free port unless `--port`). Opens the person's default browser unless `--no-browser`. It blocks until stopped, so run it in the background and stop it when the round is done.
+`got abtest --ref ORIGINAL [VERSION...] [--work DIR] [--port N] [--no-browser]`: measures each file's loudness, turns every file down to the quietest one (never up), and serves a blind A/B page on `127.0.0.1` (random free port unless `--port`). Opens the person's default browser unless `--no-browser`. It blocks until stopped, so run it in the background and stop it when the round is done.
 
-The person sees the song name (the reference's title tag, else its file name), "Original (reference)" plus shuffled blind slots A, B, C. They pick by ear, then press **Reveal the files** and tell you which slot won and what it was. The page decodes every file into browser memory (about 110 MB per 5-minute track), so keep a round to six versions or fewer.
+With no VERSION, the page first lists the reference's track renders in the work folder (`renders/<track>_*` and `renders/album/<track>_*`) and the person ticks which go into the round. The work folder is `--work`, else the folder above the first VERSION's `renders/`, else `./work/<album folder name>`.
+
+The person sees the song name (the reference's title tag, else its file name), "Original (reference)" plus blind slots A, B, C. The server shuffles the slots once per round and keeps the file names until **Reveal the files**, so the page can't show them early. **Pick this one** under a slot records the winner: one pick per round, refused after the reveal (the original can win too). Read the pick, don't ask the person to retype it: the server prints
+
+```
+pick: slot B = /abs/path/work/<album>/renders/<track>_v9_-10LUFS.wav
+```
+
+and appends a row to `<work>/abtest-picks.tsv`: time, ref, winner slot, winner path, and every slot as `<slot> <play gain dB> <path>`. A round holds at most six versions plus the reference: the page decodes every file into browser memory (about 110 MB per 5-minute track).
 
 ## got plot
 

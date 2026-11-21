@@ -23,3 +23,5 @@ Chosen option: "A blind page that turns every version down to the quietest one a
 
 ## More Information
 Evidence: `src/gain_of_thrones/abtest/__init__.py:1-2`, `:17-20`; `src/gain_of_thrones/abtest/ab_blind_template.html:209`; `tests/test_abtest.py:14` (commit 1be7acc); `.claude/skills/remaster-session/SKILL.md:13`; `docs/agent-tools.md:75-77`; `docs/research/heavy-metal-punk.md:63`, `:84`. The date is the first commit; earlier history is not in git. Related: ADR-0009.
+
+Amended 2026-11-21: the server now shuffles the slots and holds the file names until Reveal, records the person's blind pick (one per round, refused after Reveal), and appends it to `<work>/abtest-picks.tsv`. That log is the only file it writes (`docs/agent-tools.md`, `got abtest`).

@@ -82,7 +82,9 @@ Check the printout against rule 1. Then start the A/B page in the background (it
 uv run got abtest --ref "<album folder>/<track>.flac" "<render 1>" "<render 2>"
 ```
 
-Tell them: everything plays at the same loudness, the original is labelled, the rest are shuffled; pick by ear (keys 1-9, space to play), then press **Reveal the files** and tell you which slot won and what it was. Stop the server when the round is done. Log the result.
+Tell them: everything plays at the same loudness, the original is labelled, the rest are shuffled; listen by ear (keys 1-9, space to play), press **Pick this one** under their favorite (final for the round), then **Reveal the files**. Don't ask them to retype the winner: read the server's `pick: slot B = <path>` line, or the last row of `work/<album>/abtest-picks.tsv`. Stop the server when the round is done. Log the result.
+
+To let them choose which of the track's renders go in, leave the renders off: `uv run got abtest --ref "<album folder>/<track>.flac"` lists them in the page first.
 
 ## 6. Iterate, one change at a time
 
