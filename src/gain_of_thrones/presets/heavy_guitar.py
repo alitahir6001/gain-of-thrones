@@ -2,14 +2,14 @@
 
 Research: docs/research/heavy-metal-punk.md. The values are the v4 recipe that won a blind, level-matched
 A/B on a 1980s thrash/punk EP ripped from CD. The complaints it answers: guitars small and cloudy, vocal
-reverby and buried, cymbals lost at high volume.
+reverby and buried, cymbals lost at high volume. The drum-peak cap answers short level dips on drum hits (ADR 0017).
 
 Envelope (separation-artifact ceiling, from the research): EQ moves within +-3 dB at Q <= 1.5, stem gain
 within +-2 dB, no gating or expansion on "other" (it exposes separation errors).
 """
 from pedalboard import Compressor, HighpassFilter, HighShelfFilter, LowShelfFilter, NoiseGate, Pedalboard, PeakFilter
 
-from gain_of_thrones.dsp import activity, dyn_band
+from gain_of_thrones.dsp import activity, drum_peaks, dyn_band
 
 
 def de_ess(y, stems, sr):
@@ -29,7 +29,8 @@ def guitar_dip(y, stems, sr):
 # Each stem runs its stages in order: a Pedalboard, or a function (signal, raw stems, sr) -> signal.
 CHAINS = {
     "drums": [Pedalboard([HighpassFilter(30), PeakFilter(400, -1.5, 1.0), PeakFilter(4500, 1.5, 1.0),
-                          HighShelfFilter(8000, 2.5), Compressor(-20, 2, 25, 120)])],
+                          HighShelfFilter(8000, 2.5), Compressor(-20, 2, 25, 120)]),
+              drum_peaks],  # last, so the bus limiter doesn't duck the whole mix on each hit
     "bass": [Pedalboard([HighpassFilter(35), LowShelfFilter(80, -1.5), PeakFilter(300, -2.5, 1.0),
                          PeakFilter(900, 2, 1.0), PeakFilter(2500, 1.5, 1.0), Compressor(-20, 2, 25, 150)])],
     "vocals": [Pedalboard([HighpassFilter(160), PeakFilter(300, -2.5, 1.0)]),
