@@ -1,8 +1,11 @@
 """Zero-phase band split, the keyed dynamic band cut used by presets (de-esser, ducking dips), and the band
-transient lift behind the opt-in crack_lift drum stage."""
+transient lift behind the opt-in crack_lift drum stage, and the drum-peak cap."""
 import numpy as np
+import pyloudnorm as pyln
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import butter, lfilter, sosfiltfilt
+
+from .limiter import tp_limit, true_peak
 
 
 def band(x, sr, lo, hi):
@@ -42,6 +45,19 @@ def crack_lift(y, stems, sr):
     on = g > 0.1
     mean = g[on].mean() if on.any() else 0.0
     print(f"    crack lift 3-8k: active {100 * on.mean():.0f}% of time, mean lift when active {mean:.1f} dB")
+    return y
+
+
+def drum_cap_db(drum_tp, mix_lufs):
+    """Drum-stem ceiling in dBTP: 5 dB under its own peak, and never more than 10.77 dB over the raw stems' loudness."""
+    return min(drum_tp - 5, mix_lufs + 10.77)  # 10.77: where TP - 5 landed on the first track it won blind
+
+
+def drum_peaks(y, stems, sr):
+    """Drum-stem stage: cap the hits so the bus limiter stops ducking the whole mix on them (ADR 0017)."""
+    cap = drum_cap_db(true_peak(y), pyln.Meter(sr).integrated_loudness(sum(stems.values())))
+    y, gr = tp_limit(y, sr, cap, look_ms=5)
+    print(f"    drum peaks capped at {cap:.1f} dBTP: GR max {gr.max():.1f} dB, active {100 * (gr > 0.1).mean():.0f}% of time")
     return y
 
 
