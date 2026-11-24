@@ -92,8 +92,8 @@ class Session:
         self.round_id += 1
         self.round = {"files": files, "order": order, "lufs": lufs, "gains": gains, "picked": None, "revealed": False}
         print(f"round {self.round_id}:")
-        for p, l, g in zip(files, lufs, gains):
-            print(f"  {p.name}: {l:.2f} LUFS, plays at {g:+.2f} dB{' (reference)' if p == self.ref else ''}")
+        for i, (p, l, g) in enumerate(zip(files, lufs, gains)):  # by index: a version may be the reference's file
+            print(f"  {p.name}: {l:.2f} LUFS, plays at {g:+.2f} dB{' (reference)' if i == 0 else ''}")
         print(flush=True)
 
     def choose(self, indices):

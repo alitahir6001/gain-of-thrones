@@ -164,3 +164,10 @@ def test_fixed_round_refuses_the_chooser(album, server):
     url = server(Session(ref, versions[:1], work=work))
     assert post(url + "/round", {"renders": [0]})[0] == 409
     assert post(url + "/reset")[0] == 409
+
+
+def test_round_printout_labels_only_the_reference_slot(album, capsys):
+    ref, versions, work = album
+    Session(versions[0], [versions[0], versions[1]], work=work)  # the reference's own file as a blind version
+    lines = [l for l in capsys.readouterr().out.splitlines() if versions[0].name in l]
+    assert len(lines) == 2 and sum("(reference)" in l for l in lines) == 1
