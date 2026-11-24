@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0019
 date: 2026-11-21
 ---
 # Record the blind A/B pick on the server, final before Reveal
@@ -25,3 +25,5 @@ Chosen option: "The server records the pick: one per round, refused after Reveal
 
 ## More Information
 Evidence: commit fafcb20, merged as d38e142 (PR 3); `src/gain_of_thrones/abtest/__init__.py:1-4`; `tests/test_abtest.py:86-162`; `docs/agent-tools.md` (`got abtest`); `.claude/skills/remaster-session/SKILL.md`. PR 3 first wrote this decision as an amendment paragraph at the end of ADR-0008; that paragraph now points here. Related: ADR-0008 (blind level-matched A/B, which this extends), ADR-0009 (the person decides, the agent measures).
+
+Superseded by [ADR-0019](0019-picks-after-reveal-and-undo-marked-blind-or-not.md): a pick after Reveal is now allowed and logged as not blind, and a pick can be undone.
