@@ -12,7 +12,7 @@ work/<album>/
   renders/album/                           got album
   export/<format>/                         got export
   targets.tsv                              got album
-  abtest-picks.tsv                         got abtest (one row per blind pick)
+  abtest-picks.tsv                         got abtest (one row per pick or undo)
 ```
 
 Disk: about 1.8 MB per second of audio for stems plus input (roughly 5 GB for a 45-minute album).
@@ -90,13 +90,15 @@ Opt-in stage for any preset copy: `crack_lift` lifts the drum stem's 3-8 kHz att
 
 With no VERSION, the page first lists the reference's track renders in the work folder (`renders/<track>_*` and `renders/album/<track>_*`) and the person ticks which go into the round. The work folder is `--work`, else the folder above the first VERSION's `renders/`, else `./work/<album folder name>`.
 
-The person sees the song name (the reference's title tag, else its file name), "Original (reference)" plus blind slots A, B, C. The server shuffles the slots once per round and keeps the file names until **Reveal the files**, so the page can't show them early. **Pick this one** under a slot records the winner: one pick per round, refused after the reveal (the original can win too). Read the pick, don't ask the person to retype it: the server prints
+The person sees the song name (the reference's title tag, else its file name), "Original (reference)" plus blind slots A, B, C. The server shuffles the slots once per round and keeps the file names until **Reveal the files**, so the page can't show them early. **Pick this one** under a slot records the winner (the original can win too). A round has one current pick; **Undo the pick** clears it, and the person can pick again. A pick after the reveal is allowed and is marked as not blind. Read the pick, don't ask the person to retype it: the server prints
 
 ```
-pick: slot B = /abs/path/work/<album>/renders/<track>_v9_-10LUFS.wav
+pick: <track> round 2: slot B = /abs/path/work/<album>/renders/<track>_v9_-10LUFS.wav (blind)
+pick: <track> round 3: slot A = /abs/path/... (after reveal)
+undo: <track> round 3: slot A
 ```
 
-and appends a row to `<work>/abtest-picks.tsv`: time, ref, winner slot, winner path, and every slot as `<slot> <play gain dB> <path>`. A round holds at most six versions plus the reference: the page decodes every file into browser memory (about 110 MB per 5-minute track).
+and appends a row to `<work>/abtest-picks.tsv` for every pick and every undo. The columns are `time`, `event` (`pick` or `undo`), `song` (the track), `round` (`<server start>-<n>`, unique across restarts), `blind` (`yes` before the reveal, `no` after), `ref`, `winner_slot`, `winner` (both `-` on an undo row), and every slot as `<slot> <play gain dB> <path>`. The log is append-only. **The current result of a round is the last row with its `song` and `round`:** a `pick` row is the winner, and an `undo` row means no pick stands. Tell the person whether the pick was blind. A log with the older 5-column header is moved to `abtest-picks.v1.tsv` on the first write, and the server prints that. A round holds at most six versions plus the reference: the page decodes every file into browser memory (about 110 MB per 5-minute track).
 
 ## got plot
 

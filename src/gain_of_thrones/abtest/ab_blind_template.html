@@ -162,7 +162,7 @@ td.file { word-break: break-word; }
 tr.won td { background: rgba(163, 57, 42, .16); }
 td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 6px; }
 
-/* Pick: one per slot, final once pressed */
+/* Pick: one current pick per round; undo clears it */
 .slot { display: grid; gap: 8px; }
 .slot .pickbtn { width: 100%; }
 .slot.won .pickbtn { color: #fff0d6; background: linear-gradient(180deg, #a3392a, #6e1f14); opacity: 1; }
@@ -213,8 +213,9 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
   <section class="card round" aria-labelledby="h-versions">
     <div class="card-head"><h2 id="h-versions">Versions</h2><span class="now" id="now"></span></div>
     <div class="versions" id="versions"></div>
-    <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled once per round. <b>Pick this one</b> records your favorite and is final for the round.</p>
+    <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled once per round. <b>Pick this one</b> records your favorite; <b>Undo</b> clears it so you can pick again.</p>
     <p class="picked" id="picked"></p>
+    <p style="margin:10px 0 0"><button class="small" id="bUndo" hidden>Undo the pick</button></p>
     <p class="msg" id="mPick" role="status"></p>
   </section>
 
@@ -267,7 +268,7 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
 
   <section class="card round" aria-labelledby="h-reveal">
     <div class="card-head"><h2 id="h-reveal">Reveal</h2></div>
-    <p class="note" style="margin-top:0">Pick your favorite by ear first, then reveal which file is which. After the reveal, no pick is taken for this round.</p>
+    <p class="note" style="margin-top:0">Pick your favorite by ear first if you can, then reveal which file is which. You can still pick after the reveal; that pick is logged as not blind.</p>
     <p style="margin:12px 0 0"><button id="bReveal" disabled>Reveal the files</button> <button id="bNew" hidden>New round</button></p>
     <p class="msg" id="mReveal" role="status"></p>
     <div id="reveal"></div>
@@ -349,7 +350,7 @@ if (R) {
         box.append(el, pb); $("versions").appendChild(box);
       });
       $("bReveal").disabled = R.revealed;
-      showPick(); if (R.revealed) showReveal();
+      showPick();
       listen(0); setPill("Ready");
     })
     .catch(e => { setPill("Load failed", true); $("sub").textContent = "Could not load the audio: " + e.message; });
@@ -365,21 +366,28 @@ function listen(k) {
   $("now").innerHTML = `Now hearing <b>${SLOTS[k].name}</b>`;
 }
 
-// The pick goes to the server first; it refuses a second pick and any pick after Reveal.
+// The pick goes to the server first; it refuses a second pick until the first is undone.
 function choosePick(k) {
-  if (R.picked !== null || R.revealed) return;
+  if (R.picked !== null) return;
   say("mPick", "");
-  post("/pick", { slot: k }).then(s => { R.picked = s.round.picked; showPick(); }).catch(fail("mPick"));
+  post("/pick", { slot: k }).then(s => { R.picked = s.round.picked; R.blind = s.round.blind; showPick(); }).catch(fail("mPick"));
+}
+function undoPick() {
+  say("mPick", "");
+  post("/undo").then(s => { const was = SLOTS[R.picked].name; R.picked = null; R.blind = null; showPick(); say("mPick", `Pick of ${was} undone; pick again when you're ready.`); })
+    .catch(fail("mPick"));
 }
 function showPick() {
-  const done = R.picked !== null || R.revealed;
+  const done = R.picked !== null;
   SLOTS.forEach((_, j) => {
     $("p" + j).disabled = done;
     $("s" + j).classList.toggle("won", j === R.picked);
-    if (j === R.picked) $("p" + j).textContent = "Picked";
+    $("p" + j).textContent = j === R.picked ? "Picked" : "Pick this one";
   });
-  $("picked").textContent = R.picked !== null ? `Your pick: ${SLOTS[R.picked].name}. It is recorded; reveal when you're ready.`
-    : R.revealed ? "Revealed without a pick." : "";
+  $("bUndo").hidden = !done;
+  $("picked").textContent = done ? `Your pick: ${SLOTS[R.picked].name} (${R.blind ? "blind" : "after the reveal"}). It is recorded.`
+    : R.revealed ? "Revealed, no pick yet. You can still pick; it is logged as after the reveal." : "";
+  if (R.revealed) showReveal();
   $("bNew").hidden = !(STATE.chooser && R.revealed);
 }
 
@@ -451,9 +459,10 @@ $("bLoop").onclick = toggleLoop; $("bLoopA").onclick = setLoopStart; $("bLoopB")
 $("vol").oninput = e => { const v = +e.target.value; master.gain.setTargetAtTime((v / 100) ** 2, ctx.currentTime, 0.01); $("volTxt").textContent = v + "%"; };
 $("bReveal").onclick = () => {
   say("mReveal", "");
-  post("/reveal").then(s => { R.revealed = true; R.slots.forEach((v, k) => v.file = s.round.slots[k].file); showPick(); showReveal(); })
+  post("/reveal").then(s => { R.revealed = true; R.slots.forEach((v, k) => v.file = s.round.slots[k].file); showPick(); })
     .catch(fail("mReveal"));
 };
+$("bUndo").onclick = undoPick;
 $("bNew").onclick = () => post("/reset").then(() => location.reload()).catch(fail("mReveal"));
 function showReveal() {
   const rows = SLOTS.map((v, k) => `<tr${k === R.picked ? ' class="won"' : ""}><td><b>${v.name}</b>${k === R.picked ? '<span class="star">picked</span>' : ""}</td><td class="file"></td>` +

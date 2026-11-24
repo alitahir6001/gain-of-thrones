@@ -1,7 +1,7 @@
 """Blind, level-matched A/B in the browser. Every version is turned down to the quietest one, never up,
 so "louder sounds better" can't decide the test. Served on 127.0.0.1 only. The server shuffles the slots and
-keeps the slot-to-file map until Reveal, so the page never holds a file name it could show early. The person's
-pick is appended to <work>/abtest-picks.tsv; nothing else is written."""
+keeps the slot-to-file map until Reveal, so the page never holds a file name it could show early. Every pick and
+undo is appended to <work>/abtest-picks.tsv, marked blind or after Reveal; nothing else is written."""
 import http.server
 import json
 import mimetypes
@@ -19,7 +19,7 @@ from .. import io
 TEMPLATE = Path(__file__).with_name("ab_blind_template.html")
 MAX_VERSIONS = 6  # renders per round, plus the reference: each decodes to ~110 MB in the browser
 LOG_NAME = "abtest-picks.tsv"
-LOG_HEADER = "time\tref\twinner_slot\twinner\tslots (slot gain_dB path)\n"
+LOG_HEADER = "time\tevent\tsong\tround\tblind\tref\twinner_slot\twinner\tslots (slot gain_dB path)\n"
 
 
 def match_gains(lufs):
@@ -57,6 +57,26 @@ def track_renders(work, ref):
     return [p for d in dirs if d.is_dir() for p in io.audio_files(d) if p.name.startswith(prefix)]
 
 
+def open_log(log):
+    """Append handle for the picks log. A log with another header (the v1 schema) is renamed first, so one file
+    never mixes two schemas."""
+    log = Path(log)
+    if log.exists():
+        with open(log) as fh:
+            first = fh.readline()
+        if first != LOG_HEADER:
+            old = next(q for n in range(1, 1000)
+                       if not (q := log.with_name(log.stem + (".v1" if n == 1 else f".v1-{n}") + log.suffix)).exists())
+            log.rename(old)
+            print(f"picks log had an older header; moved it to {old}", flush=True)
+    new = not log.exists()
+    log.parent.mkdir(parents=True, exist_ok=True)
+    fh = open(log, "a")
+    if new:
+        fh.write(LOG_HEADER)
+    return fh
+
+
 class Session:
     """The server's state: the files on offer and the current round. Every method is safe to call from
     concurrent request threads. Errors are (http_code, message) via RoundError."""
@@ -71,6 +91,8 @@ class Session:
         self.lufs = {}
         self.round = None
         self.round_id = 0
+        self.track = self.ref.stem
+        self.run = time.strftime("%Y%m%dT%H%M%S")  # with round_id, names a round uniquely across restarts
         if versions:
             self.start([Path(v).resolve() for v in versions])
 
@@ -90,7 +112,7 @@ class Session:
         self.rng.shuffle(blind)
         order = [0, *blind]  # slot k plays files[order[k]]; the reference stays in slot 0
         self.round_id += 1
-        self.round = {"files": files, "order": order, "lufs": lufs, "gains": gains, "picked": None, "revealed": False}
+        self.round = {"files": files, "order": order, "lufs": lufs, "gains": gains, "picked": None, "pick_blind": None, "revealed": False}
         print(f"round {self.round_id}:")
         for i, (p, l, g) in enumerate(zip(files, lufs, gains)):  # by index: a version may be the reference's file
             print(f"  {p.name}: {l:.2f} LUFS, plays at {g:+.2f} dB{' (reference)' if i == 0 else ''}")
@@ -121,21 +143,32 @@ class Session:
             r = self.round
             if r is None:
                 raise RoundError(409, "no round in progress")
-            if r["revealed"]:
-                raise RoundError(409, "the files are revealed; a pick now would not be blind")
             if r["picked"] is not None:
-                raise RoundError(409, f"slot {slot_name(r['picked'])} is already picked")
+                raise RoundError(409, f"slot {slot_name(r['picked'])} is already picked; undo it first")
             if not (isinstance(k, int) and 0 <= k < len(r["order"])):
                 raise RoundError(400, "unknown slot")
-            r["picked"] = k
+            r["picked"], r["pick_blind"] = k, not r["revealed"]
             winner = self.slot_file(k)
-            print(f"pick: slot {slot_name(k)} = {winner}", flush=True)
-            slots = " | ".join(f"{slot_name(j)} {r['gains'][i]:+.2f} {r['files'][i]}" for j, i in enumerate(r["order"]))
-            new = not self.log.exists()
-            self.log.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.log, "a") as fh:
-                fh.write((LOG_HEADER if new else "") +
-                         f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{self.ref}\t{slot_name(k)}\t{winner}\t{slots}\n")
+            print(f"pick: {self.track} round {self.round_id}: slot {slot_name(k)} = {winner} "
+                  f"({'blind' if r['pick_blind'] else 'after reveal'})", flush=True)
+            self.write_log("pick", slot_name(k), winner)
+
+    def undo(self):
+        with self.lock:
+            r = self.round
+            if r is None or r["picked"] is None:
+                raise RoundError(409, "no pick to undo")
+            print(f"undo: {self.track} round {self.round_id}: slot {slot_name(r['picked'])}", flush=True)
+            r["picked"] = r["pick_blind"] = None
+            self.write_log("undo", "-", "-")
+
+    def write_log(self, event, slot, winner):
+        r = self.round
+        slots = " | ".join(f"{slot_name(j)} {r['gains'][i]:+.2f} {r['files'][i]}" for j, i in enumerate(r["order"]))
+        row = [time.strftime("%Y-%m-%dT%H:%M:%S"), event, self.track, f"{self.run}-{self.round_id}",
+               "no" if r["revealed"] else "yes", self.ref, slot, winner, slots]
+        with open_log(self.log) as fh:
+            fh.write("\t".join(map(str, row)) + "\n")
 
     def reveal(self):
         with self.lock:
@@ -153,7 +186,7 @@ class Session:
                  "max": MAX_VERSIONS, "round": None}
             if r:
                 s["round"] = {
-                    "id": self.round_id, "picked": r["picked"], "revealed": r["revealed"],
+                    "id": self.round_id, "picked": r["picked"], "blind": r["pick_blind"], "revealed": r["revealed"],
                     "slots": [{"name": slot_name(k), "url": f"/audio/{k}?r={self.round_id}",
                                "lufs": round(r["lufs"][i], 2), "gain_db": round(r["gains"][i], 2),
                                **({"file": r["files"][i].name} if r["revealed"] else {})}
@@ -186,7 +219,8 @@ def make_server(session, port=0):
 
         def do_POST(self):
             actions = {"/pick": lambda b: session.pick(b.get("slot")), "/reveal": lambda b: session.reveal(),
-                       "/round": lambda b: session.choose(b.get("renders", [])), "/reset": lambda b: session.reset()}
+                       "/round": lambda b: session.choose(b.get("renders", [])), "/reset": lambda b: session.reset(),
+                       "/undo": lambda b: session.undo()}
             if self.path not in actions:
                 return self.send(404, "text/plain", b"")
             try:

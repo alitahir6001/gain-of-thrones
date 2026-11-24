@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from gain_of_thrones.abtest import (LOG_NAME, MAX_VERSIONS, Session, make_server, match_gains, song_name, track_renders,
+from gain_of_thrones.abtest import (LOG_HEADER, LOG_NAME, MAX_VERSIONS, Session, make_server, match_gains, song_name, track_renders,
                                     work_folder)
 
 
@@ -101,7 +101,13 @@ def test_page_hides_file_names_until_reveal(album, server):
     assert versions[0].name in get(url + "/").decode()  # after reveal a reload shows them
 
 
-def test_pick_prints_and_logs_the_blind_file_and_is_final(album, server, capsys):
+def rows(work):
+    header, *rest = (work / LOG_NAME).read_text().splitlines()
+    assert header == LOG_HEADER.rstrip("\n")
+    return [dict(zip([h.split(" ")[0] for h in header.split("\t")], r.split("\t"))) for r in rest]
+
+
+def test_pick_prints_and_logs_the_blind_file(album, server, capsys):
     ref, versions, work = album
     session = Session(ref, versions[:2], work=work)
     url = server(session)
@@ -109,28 +115,56 @@ def test_pick_prints_and_logs_the_blind_file_and_is_final(album, server, capsys)
     assert get(url + "/audio/2") == winner.read_bytes()  # the slot plays the file that gets logged
 
     code, s = post(url + "/pick", {"slot": 2})
-    assert code == 200 and s["round"]["picked"] == 2
-    assert f"pick: slot B = {winner}" in capsys.readouterr().out
-    header, row = (work / LOG_NAME).read_text().splitlines()
-    assert header.startswith("time\tref\twinner_slot\twinner")
-    _, logged_ref, slot, logged_winner, slots = row.split("\t")
-    assert (logged_ref, slot, logged_winner) == (str(ref.resolve()), "B", str(winner))
+    assert code == 200 and s["round"]["picked"] == 2 and s["round"]["blind"] is True
+    assert f"pick: 01 Tone round 1: slot B = {winner} (blind)" in capsys.readouterr().out
+    [row] = rows(work)
+    assert (row["event"], row["song"], row["blind"], row["ref"], row["winner_slot"], row["winner"]) == \
+        ("pick", "01 Tone", "yes", str(ref.resolve()), "B", str(winner))
     for k, name in enumerate(["Original", "A", "B"]):
-        assert f"{name} {session.round['gains'][session.round['order'][k]]:+.2f} {session.slot_file(k)}" in slots
-    assert "Original +0.00" in slots  # the -20 dB reference is the quietest, so it plays as is
+        assert f"{name} {session.round['gains'][session.round['order'][k]]:+.2f} {session.slot_file(k)}" in row["slots"]
+    assert "Original +0.00" in row["slots"]  # the -20 dB reference is the quietest, so it plays as is
 
     code, s = post(url + "/pick", {"slot": 1})
-    assert code == 409 and "already picked" in s["error"]
-    assert len((work / LOG_NAME).read_text().splitlines()) == 2
+    assert code == 409 and "undo it first" in s["error"]  # one current pick per round
+    assert len(rows(work)) == 1
 
 
-def test_pick_after_reveal_is_refused(album, server):
+def test_pick_after_reveal_is_logged_not_blind(album, server, capsys):
     ref, versions, work = album
-    url = server(Session(ref, versions[:2], work=work))
+    session = Session(ref, versions[:2], work=work)
+    url = server(session)
     assert post(url + "/reveal")[0] == 200
     code, s = post(url + "/pick", {"slot": 1})
-    assert code == 409 and "revealed" in s["error"]
-    assert not (work / LOG_NAME).exists()
+    assert code == 200 and s["round"]["blind"] is False
+    assert f"slot A = {session.slot_file(1)} (after reveal)" in capsys.readouterr().out
+    assert [(r["event"], r["blind"], r["winner_slot"]) for r in rows(work)] == [("pick", "no", "A")]
+
+
+def test_undo_appends_a_row_and_allows_a_new_pick(album, server, capsys):
+    ref, versions, work = album
+    session = Session(ref, versions[:2], work=work)
+    url = server(session)
+    assert post(url + "/undo")[0] == 409  # nothing to undo yet
+    post(url + "/pick", {"slot": 1})
+    code, s = post(url + "/undo")
+    assert code == 200 and s["round"]["picked"] is None
+    assert "undo: 01 Tone round 1: slot A" in capsys.readouterr().out
+    post(url + "/reveal")
+    post(url + "/pick", {"slot": 2})
+    log = rows(work)
+    assert [(r["event"], r["blind"], r["winner_slot"], r["winner"]) for r in log] == [
+        ("pick", "yes", "A", str(session.slot_file(1))), ("undo", "yes", "-", "-"),
+        ("pick", "no", "B", str(session.slot_file(2)))]
+    assert len({r["round"] for r in log}) == 1  # the last row of the round is the current pick
+
+
+def test_old_log_is_moved_aside(album):
+    ref, versions, work = album
+    (work / LOG_NAME).write_text("time\tref\twinner_slot\twinner\tslots (slot gain_dB path)\nold row\n")
+    session = Session(ref, versions[:1], work=work)
+    session.pick(1)
+    assert (work / "abtest-picks.v1.tsv").read_text().endswith("old row\n")
+    assert len(rows(work)) == 1
 
 
 def test_bad_slot_is_refused(album, server):
