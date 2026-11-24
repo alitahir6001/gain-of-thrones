@@ -52,10 +52,10 @@ def pair(renders, source_dir):
     for r in {f.resolve(): f for f in files}.values():
         if r.suffix.lower() != ".wav":
             raise SystemExit(f"not a .wav render: {r}")
-        match = [s for s in sources if r.name.startswith(s.stem + "_")]
-        if not match:
+        track = io.track_of(r.name, {s.stem for s in sources})
+        if track is None:
             raise SystemExit(f"no source file in {source_dir} matches {r.name}")
-        by_src.setdefault(max(match, key=lambda s: len(s.stem)), []).append(r)
+        by_src.setdefault(next(s for s in sources if s.stem == track), []).append(r)
     dup = [f"{s.name}: {', '.join(r.name for r in rs)}" for s, rs in by_src.items() if len(rs) > 1]
     if dup:
         raise SystemExit("more than one render per track; pass the render files you want instead:\n  "

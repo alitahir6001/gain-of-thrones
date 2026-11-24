@@ -86,6 +86,8 @@ Tell them: everything plays at the same loudness, the original is labelled, the 
 
 To let them choose which of the track's renders go in, leave the renders off: `uv run got abtest --ref "<album folder>/<track>.flac"` lists them in the page first.
 
+To compare several songs, start one server for the album, not one per song: `uv run got abtest --source "<album folder>"` lists every song with renders on the left. Each song's reference is the CD original unless they switch it to the album remaster in the page. Each log row names its song, so read the last row per song and round.
+
 ## 6. Iterate, one change at a time
 
 Copy the preset into the work folder once, then change one value per round:

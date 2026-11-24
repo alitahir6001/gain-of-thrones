@@ -46,7 +46,11 @@ def cmd_album(a):
 
 def cmd_abtest(a):
     from . import abtest
-    abtest.serve(a.ref, a.versions, a.work, open_browser=not a.no_browser, port=a.port)
+    if bool(a.ref) == bool(a.source):
+        raise SystemExit("got abtest: give exactly one of --ref (one song) or --source (every song of an album)")
+    if a.source and a.versions:
+        raise SystemExit("got abtest: VERSIONs go with --ref; with --source the person chooses renders in the page")
+    abtest.serve(a.ref, a.versions, a.work, a.source, open_browser=not a.no_browser, port=a.port)
 
 
 def cmd_plot(a):
@@ -100,9 +104,12 @@ def main(argv=None):
     p = sub.add_parser("abtest", help="serve a blind, level-matched A/B page on 127.0.0.1 (Ctrl-C to stop)")
     p.add_argument("versions", nargs="*",
                    help="renders to compare (at most 6); none: the person chooses from the track's renders in the page")
-    p.add_argument("--ref", required=True, help="the original, shown labelled as the reference")
-    p.add_argument("--work", help="work folder for the render list and abtest-picks.tsv "
-                                  "(default: above the first version's renders/, else ./work/<album folder name>)")
+    p.add_argument("--ref", help="one song: the original, shown labelled as the reference")
+    p.add_argument("--source", metavar="ALBUM_DIR",
+                   help="every song of this album folder that has renders, listed in the page; each song's "
+                        "reference is its file here (the CD original) or its renders/album/ render")
+    p.add_argument("--work", help="work folder for the render list and abtest-picks.tsv (default: above the first "
+                                  "version's renders/, else ./work/<album folder name>)")
     p.add_argument("--port", type=int, default=0, help="default: a random free port")
     p.add_argument("--no-browser", action="store_true", help="print the URL without opening a browser")
     p.set_defaults(func=cmd_abtest)

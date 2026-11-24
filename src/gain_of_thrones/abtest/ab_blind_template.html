@@ -23,6 +23,28 @@ body { margin: 0; min-height: 100vh; color: var(--text); font: 15px/1.5 -apple-s
   background-attachment: fixed; }
 main { max-width: 800px; margin: 0 auto; padding: 36px 16px 64px; display: grid; gap: 20px; }
 
+/* Song list: a left column beside the cards when the server has more than one song */
+.shell.multi { display: grid; grid-template-columns: 230px minmax(0, 800px); gap: 8px; justify-content: center; padding: 0 16px; }
+.shell.multi main { margin: 0; padding-left: 0; padding-right: 0; width: 100%; }
+#nav { position: sticky; top: 0; align-self: start; padding: 36px 0 24px; }
+#nav .label { display: block; margin: 0 0 12px; }
+.songs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.songs a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 7px; text-decoration: none;
+  color: var(--text); font: 14px/1.3 var(--serif); background: rgba(13, 8, 6, .55); box-shadow: inset 0 1px 3px #000; }
+.songs a:hover { background: rgba(60, 30, 14, .7); }
+.songs a[aria-current] { color: #fff0d6; background: linear-gradient(180deg, #9a4a24, #6e2c12); box-shadow: 0 0 14px rgba(230, 120, 60, .3); }
+.songs a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.songs .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #3a1f0a; box-shadow: inset 0 1px 2px #000; }
+.songs .open .dot { background: var(--amber-lo); box-shadow: 0 0 6px var(--glow); }
+.songs .picked .dot { background: #fff0b8; box-shadow: 0 0 8px #fff3c2; }
+
+/* Reference toggle in the chooser */
+.refs { border: 0; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.refs legend { float: left; margin-right: 6px; }
+.refs label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.refs input { accent-color: var(--amber-lo); }
+.refs .file { font: 12px/1.3 var(--mono); color: var(--muted); word-break: break-word; }
+
 /* Header: brass nameplate and indicator lamp */
 header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .brand { font: 600 11px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--brass); margin: 0 0 10px;
@@ -182,6 +204,13 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
 .choices input { accent-color: var(--amber-lo); width: 16px; height: 16px; flex: none; }
 [hidden] { display: none !important; }
 
+@media (max-width: 760px) {
+  .shell.multi { display: block; padding: 0; }
+  .shell.multi main { padding: 20px 16px 64px; }
+  #nav { position: static; padding: 20px 16px 0; }
+  .songs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+  .songs a { white-space: nowrap; }
+}
 @media (max-width: 560px) {
   h1 { font-size: 24px; }
   .card { padding: 18px 16px; border-width: 8px; }
@@ -193,6 +222,8 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style></head>
 <body>
+<div class="shell" id="shell">
+<nav id="nav" aria-label="Songs" hidden><span class="label">Songs</span><ol class="songs" id="songs"></ol></nav>
 <main>
   <header>
     <div>
@@ -206,6 +237,11 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
 
   <section class="card" aria-labelledby="h-choose" id="chooser" hidden>
     <div class="card-head"><h2 id="h-choose">Choose renders</h2><span class="now" id="chosen"></span></div>
+    <fieldset class="refs" id="refs" hidden>
+      <legend class="label">Reference</legend>
+      <label><input type="radio" name="ref" value="cd"> CD original</label>
+      <label><input type="radio" name="ref" value="album"> Album remaster <span class="file" id="albumFile"></span></label>
+    </fieldset>
     <ul class="choices" id="choices"></ul>
     <p class="note">Tick the renders to compare against the original. Once the round starts they are shuffled into blind slots, and the names stay hidden until you reveal them.</p>
     <p style="margin:12px 0 0"><button id="bStart" class="primary" disabled>Start the round</button></p>
@@ -276,15 +312,28 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
     <div id="reveal"></div>
   </section>
 </main>
+</div>
 <script>
-// Filled by got abtest: {song, chooser (true: renders are chosen in the page), renders: [names, before a round only],
-// max, round: null or {id, picked, revealed, slots: [{name, url, lufs, gain_db, file (only once revealed)}]}}. The server shuffled the slots; slot 0 is the
+// Filled by got abtest: {index (this song), song, songs: [{name, status: none|open|picked}], chooser (true: renders are
+// chosen in the page), renders: [names, before a round only], refs: {cd, album?: file names, before a round only},
+// ref (the reference kind of the next or current round), max, round: null or {id, picked, revealed, slots: [{name, url, lufs, gain_db, file (only once revealed)}]}}. The server shuffled the slots; slot 0 is the
 // reference. gain_db is always <= 0 (level-matched down, never up).
 // Must be served over http (fetch fails on file://). Don't name an element "status": it clashes with window.status.
 const STATE = __STATE__;
 const R = STATE.round;
 const SLOTS = R ? R.slots : [];
 const $ = id => document.getElementById(id);
+if (STATE.songs.length > 1) {  // one server, many songs: each keeps its own round on the server
+  $("shell").classList.add("multi"); $("nav").hidden = false;
+  const hint = { none: "", open: " (round in progress)", picked: " (picked)" };
+  STATE.songs.forEach((x, i) => {
+    const li = document.createElement("li"), a = document.createElement("a");
+    a.href = `/?song=${i}`; a.className = x.status; a.title = x.name + hint[x.status];
+    a.innerHTML = '<span class="dot"></span><span></span>'; a.lastChild.textContent = x.name;
+    if (i === STATE.index) a.setAttribute("aria-current", "page");
+    li.appendChild(a); $("songs").appendChild(li);
+  });
+}
 $("song").textContent = STATE.song;
 document.title = `${STATE.song} · Blind A/B`;
 const ctx = new AudioContext();
@@ -296,7 +345,7 @@ const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + "
 const level = k => Math.pow(10, SLOTS[k].gain_db / 20);
 function setPill(text, err) { $("pill").textContent = text; $("pill").className = "pill" + (err ? " err" : ""); }
 async function post(path, body) {
-  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, song: STATE.index }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || `${r.status}`);
   return j;
@@ -310,6 +359,10 @@ if (!R) {
   document.querySelectorAll(".round").forEach(el => el.hidden = true);
   $("chooser").hidden = false;
   $("sub").textContent = `${STATE.renders.length} renders of this track; choose up to ${STATE.max}`;
+  if (STATE.refs.album) {  // the album render can be the reference and still be ticked as a blind version
+    $("refs").hidden = false; $("albumFile").textContent = STATE.refs.album;
+    $("refs").querySelector(`input[value="${STATE.ref}"]`).checked = true;
+  }
   STATE.renders.forEach((name, i) => {
     const li = document.createElement("li");
     li.innerHTML = `<label><input type="checkbox" value="${i}"><span></span></label>`;
@@ -324,7 +377,7 @@ if (!R) {
   };
   $("bStart").onclick = () => {
     $("bStart").disabled = true; setPill("Measuring");
-    post("/round", { renders: ticked() }).then(() => location.reload()).catch(e => { fail("mChoose")(e); $("bStart").disabled = false; });
+    post("/round", { renders: ticked(), ref: $("refs").hidden ? "cd" : $("refs").querySelector("input:checked").value }).then(() => location.reload()).catch(e => { fail("mChoose")(e); $("bStart").disabled = false; });
   };
   setPill("Choose");
 }
@@ -387,6 +440,8 @@ function showPick() {
     $("p" + j).textContent = j === R.picked ? "Picked" : "Pick this one";
   });
   $("bUndo").hidden = !done;
+  const here = document.querySelector(".songs a[aria-current]");
+  if (here) here.className = done ? "picked" : "open";
   $("picked").textContent = done ? `Your pick: ${SLOTS[R.picked].name} (${R.blind ? "blind" : "after the reveal"}). It is recorded.`
     : R.revealed ? "Revealed, no pick yet. You can still pick; it is logged as after the reveal." : "";
   if (R.revealed) showReveal();
