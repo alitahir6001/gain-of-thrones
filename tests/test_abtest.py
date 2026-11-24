@@ -171,3 +171,9 @@ def test_round_printout_labels_only_the_reference_slot(album, capsys):
     Session(versions[0], [versions[0], versions[1]], work=work)  # the reference's own file as a blind version
     lines = [l for l in capsys.readouterr().out.splitlines() if versions[0].name in l]
     assert len(lines) == 2 and sum("(reference)" in l for l in lines) == 1
+
+
+def test_page_uses_no_browser_dialogs():
+    from gain_of_thrones.abtest import TEMPLATE
+    js = TEMPLATE.read_text()
+    assert not any(f"{f}(" in js for f in ("alert", "confirm", "prompt"))

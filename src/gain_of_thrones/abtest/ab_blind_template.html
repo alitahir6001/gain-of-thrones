@@ -167,6 +167,11 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
 .slot .pickbtn { width: 100%; }
 .slot.won .pickbtn { color: #fff0d6; background: linear-gradient(180deg, #a3392a, #6e1f14); opacity: 1; }
 .picked { font: 600 13px/1.4 var(--mono); color: var(--amber); margin: 16px 0 0; }
+/* In-page messages next to the control that caused them (no browser dialogs) */
+.msg { font: 13px/1.4 var(--mono); color: var(--amber); margin: 12px 0 0; }
+.msg:empty { display: none; }
+.msg.err { color: #ff8a70; }
+.msg.err::before { content: "Refused: "; font-weight: 700; }
 
 /* Chooser: which renders go into the round */
 .choices { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -202,6 +207,7 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
     <ul class="choices" id="choices"></ul>
     <p class="note">Tick the renders to compare against the original. Once the round starts they are shuffled into blind slots, and the names stay hidden until you reveal them.</p>
     <p style="margin:12px 0 0"><button id="bStart" class="primary" disabled>Start the round</button></p>
+    <p class="msg" id="mChoose" role="status"></p>
   </section>
 
   <section class="card round" aria-labelledby="h-versions">
@@ -209,6 +215,7 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
     <div class="versions" id="versions"></div>
     <p class="note">All versions play in lockstep, turned down to the loudness of the quietest one, never up. Switching changes only which one you hear, never the position. The order is shuffled once per round. <b>Pick this one</b> records your favorite and is final for the round.</p>
     <p class="picked" id="picked"></p>
+    <p class="msg" id="mPick" role="status"></p>
   </section>
 
   <section class="card round" aria-labelledby="h-transport">
@@ -262,6 +269,7 @@ td .star { color: var(--oxblood); font: 700 11px/1 var(--mono); letter-spacing: 
     <div class="card-head"><h2 id="h-reveal">Reveal</h2></div>
     <p class="note" style="margin-top:0">Pick your favorite by ear first, then reveal which file is which. After the reveal, no pick is taken for this round.</p>
     <p style="margin:12px 0 0"><button id="bReveal" disabled>Reveal the files</button> <button id="bNew" hidden>New round</button></p>
+    <p class="msg" id="mReveal" role="status"></p>
     <div id="reveal"></div>
   </section>
 </main>
@@ -290,7 +298,9 @@ async function post(path, body) {
   if (!r.ok) throw new Error(j.error || `${r.status}`);
   return j;
 }
-function fail(e) { setPill("Refused", true); $("sub").textContent = e.message; }
+// Show a result or a refusal in the card whose control caused it.
+function say(id, text, err) { $(id).textContent = text; $(id).className = "msg" + (err ? " err" : ""); }
+const fail = id => e => { setPill("Refused", true); say(id, e.message, true); };
 
 // Chooser: no round yet, so the person ticks which renders go in. Names are fine here; the slots aren't dealt yet.
 if (!R) {
@@ -311,7 +321,7 @@ if (!R) {
   };
   $("bStart").onclick = () => {
     $("bStart").disabled = true; setPill("Measuring");
-    post("/round", { renders: ticked() }).then(() => location.reload()).catch(e => { fail(e); $("bStart").disabled = false; });
+    post("/round", { renders: ticked() }).then(() => location.reload()).catch(e => { fail("mChoose")(e); $("bStart").disabled = false; });
   };
   setPill("Choose");
 }
@@ -358,8 +368,8 @@ function listen(k) {
 // The pick goes to the server first; it refuses a second pick and any pick after Reveal.
 function choosePick(k) {
   if (R.picked !== null || R.revealed) return;
-  if (!confirm(`Pick ${SLOTS[k].name}? Your pick is final for this round.`)) return;
-  post("/pick", { slot: k }).then(s => { R.picked = s.round.picked; showPick(); }).catch(fail);
+  say("mPick", "");
+  post("/pick", { slot: k }).then(s => { R.picked = s.round.picked; showPick(); }).catch(fail("mPick"));
 }
 function showPick() {
   const done = R.picked !== null || R.revealed;
@@ -440,11 +450,11 @@ $("bBack").onclick = () => seek(now() - 10); $("bFwd").onclick = () => seek(now(
 $("bLoop").onclick = toggleLoop; $("bLoopA").onclick = setLoopStart; $("bLoopB").onclick = setLoopEnd; $("bLoopClear").onclick = clearLoop;
 $("vol").oninput = e => { const v = +e.target.value; master.gain.setTargetAtTime((v / 100) ** 2, ctx.currentTime, 0.01); $("volTxt").textContent = v + "%"; };
 $("bReveal").onclick = () => {
-  if (R.picked === null && !confirm("Reveal without a pick? No pick is taken after the reveal.")) return;
+  say("mReveal", "");
   post("/reveal").then(s => { R.revealed = true; R.slots.forEach((v, k) => v.file = s.round.slots[k].file); showPick(); showReveal(); })
-    .catch(fail);
+    .catch(fail("mReveal"));
 };
-$("bNew").onclick = () => post("/reset").then(() => location.reload()).catch(fail);
+$("bNew").onclick = () => post("/reset").then(() => location.reload()).catch(fail("mReveal"));
 function showReveal() {
   const rows = SLOTS.map((v, k) => `<tr${k === R.picked ? ' class="won"' : ""}><td><b>${v.name}</b>${k === R.picked ? '<span class="star">picked</span>' : ""}</td><td class="file"></td>` +
     `<td class="num">${v.lufs.toFixed(2)} LUFS</td><td class="num">${v.gain_db.toFixed(2)} dB</td></tr>`).join("");
