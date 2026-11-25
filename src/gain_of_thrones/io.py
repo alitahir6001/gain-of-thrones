@@ -48,3 +48,10 @@ def audio_files(folder):
     """Audio files directly in folder, sorted by name (skips macOS ._ files)."""
     return sorted(p for p in Path(folder).iterdir()
                   if p.is_file() and p.suffix.lower() in AUDIO_EXTS and not p.name.startswith("."))
+
+
+def track_of(name, tracks):
+    """The track a render file name belongs to: the longest track name followed by '_' that starts it, so
+    '01 Freaks' doesn't claim '01 Freaks Reprise_v1.wav'. None if no track matches."""
+    hits = [t for t in tracks if name.startswith(t + "_")]
+    return max(hits, key=len) if hits else None
